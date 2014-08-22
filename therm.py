@@ -207,26 +207,26 @@ def plotsolution(lyr, mesh):
   z4= mesh.field[:, :, lyr.heat];
   z5= mesh.ifield[:, :, lyr.isoflag];
 
-# plt.figure(1)
-# plt.subplot(1,1,1)
-# plt.axes(aspect=1)
-# quad1= plt.pcolormesh(mesh.xr, mesh.yr, z1)
-# plt.colorbar()
-# plt.draw()
-# 
-# plt.figure(2)
-# plt.subplot(1,1,1)
-# plt.axes(aspect=1)
-# quad2= plt.pcolormesh(mesh.xr, mesh.yr, z2)
-# plt.colorbar()
-# plt.draw()
-# 
-# plt.figure(3)
-# plt.subplot(1,1,1)
-# plt.axes(aspect=1)
-# quad3= plt.pcolormesh(mesh.xr, mesh.yr, z3)
-# plt.colorbar()
-# plt.draw()
+  plt.figure(1)
+  plt.subplot(1,1,1)
+  plt.axes(aspect=1)
+  quad1= plt.pcolormesh(mesh.xr, mesh.yr, z1)
+  plt.colorbar()
+  plt.draw()
+  
+  plt.figure(2)
+  plt.subplot(1,1,1)
+  plt.axes(aspect=1)
+  quad2= plt.pcolormesh(mesh.xr, mesh.yr, z2)
+  plt.colorbar()
+  plt.draw()
+  
+  plt.figure(3)
+  plt.subplot(1,1,1)
+  plt.axes(aspect=1)
+  quad3= plt.pcolormesh(mesh.xr, mesh.yr, z3)
+  plt.colorbar()
+  plt.draw()
   
   plt.figure(4)
   plt.subplot(1,1,1)
@@ -235,12 +235,12 @@ def plotsolution(lyr, mesh):
   plt.colorbar()
   plt.draw()
 
-# plt.figure(5)
-# plt.subplot(1,1,1)
-# plt.axes(aspect=1)
-# quad4= plt.pcolormesh(mesh.xr, mesh.yr, z5)
-# plt.colorbar()
-# plt.draw()
+  plt.figure(5)
+  plt.subplot(1,1,1)
+  plt.axes(aspect=1)
+  quad4= plt.pcolormesh(mesh.xr, mesh.yr, z5)
+  plt.colorbar()
+  plt.draw()
 
   plt.show()
 
@@ -835,7 +835,7 @@ def Main():
   #    real	372m26.483s
   #    user	477m34.471s
   #    sys	1m48.083s
-  mesh = Mesh(1000, 1000, lyr)
+  mesh = Mesh(50, 50, lyr)
   matls = Matls()
 
   defineproblem(lyr, mesh, matls)
@@ -882,105 +882,6 @@ def Main():
 #
 
 Main()
-
-def loadMatrix2(self):
-    R1 = 10.0
-    R2 = 10.0
-    R3 = 15.0
-    R4 = 15.0
-    R5 = 5.0
-    R6 = 30.0
-
-    # A is the problem matrix
-    # Modified nodal analysis
-    # http://www.swarthmore.edu/NatSci/echeeve1/Ref/mna/MNA2.html
-
-    # node 0
-    self.A[0, 0] = 1/R1
-    # node 1
-    self.A[1, 1] = 1/R1 + 1/R2 + 1/R3
-    # node 2
-    self.A[2, 2] = 1/R3 + 1/R4 + 1/R5
-    # node 3
-    self.A[3, 3] = 1/R5 + 1/R6
-    # Common node impedances
-    self.A[0, 1] = -1/R1
-    self.A[1, 0] = -1/R1
-    self.A[1, 2] = -1/R3
-    self.A[2, 1] = -1/R3
-    self.A[2, 3] = -1/R5
-    self.A[3, 2] = -1/R5
-    # Independent voltage source into node 0
-    self.A[0, 4] = 1
-    self.A[4, 0] = 1
-
-    # b is the RHS, which are current sources for injected heat and voltage sources for 
-    #   boundar condition.
-    self.b[0] = 0
-    self.b[1] = 0
-    self.b[2] = 0
-    # This is the only term for a 1A current source injected into node 3
-    self.b[3] = 1
-    # This is the 10V voltage source going into node 0.
-    # Current going in to the arrow of this source is in the solution as x[4]
-    # In this example, the current flows in the direction of the arrow on the current source,
-    # so the solution to the current is negative.
-    self.b[4] = 10
-
-#
-# This will become a pytrilinos solver
-#
-def simstep(iter, lyr, mesh, monitor):
-  maxdelta= 0;
-  mesh.field[:, :, lyr.flux] = 0.0
-  for x in range(1, mesh.width-1):
-    for y in range(1, mesh.height-1):
-      if (mesh.field[x , y, lyr.iso] != 1.0):
-        resisl= mesh.field[x - 1, y, lyr.resis]
-        resisr= mesh.field[x + 1, y, lyr.resis]
-        resisu= mesh.field[x, y - 1, lyr.resis]
-        resisd= mesh.field[x, y + 1, lyr.resis]
-        tresis= resisl+resisr+resisu+resisd
-        degl= mesh.field[x - 1, y, lyr.deg]
-        degr= mesh.field[x + 1, y, lyr.deg]
-        degu= mesh.field[x, y - 1, lyr.deg]
-        degd= mesh.field[x, y + 1, lyr.deg]
-        
-        if (tresis > 0):
-          prevdeg = mesh.field[x, y, lyr.deg]
-          powerincell = mesh.field[x, y, lyr.heat]
-          monitor.powerin = monitor.powerin + powerincell
-          newdeg = (powerincell + ( degl*resisl + degr*resisr + degu*resisu + degd*resisd ))/tresis
-
-          poweroutcell = 0.0
-          fluxl= (prevdeg - degl) * resisl
-          fluxr= (prevdeg - degr) * resisr
-          fluxu= (prevdeg - degu) * resisu
-          fluxd= (prevdeg - degd) * resisd
-
-          if (mesh.field[x - 1 , y, lyr.iso] == 1.0):
-            poweroutcell = poweroutcell + fluxl
-          if (mesh.field[x + 1 , y, lyr.iso] == 1.0):
-            poweroutcell = poweroutcell + fluxr
-          if (mesh.field[x , y - 1, lyr.iso] == 1.0):
-            poweroutcell = poweroutcell + fluxu
-          if (mesh.field[x , y + 1, lyr.iso] == 1.0):
-            poweroutcell = poweroutcell + fluxd
-
-          mesh.field[x - 1 , y, lyr.flux] += abs(fluxl)
-          mesh.field[x + 1 , y, lyr.flux] += abs(fluxr)
-          mesh.field[x, y - 1, lyr.flux] += abs(fluxu)
-          mesh.field[x, y + 1, lyr.flux] += abs(fluxd)
-          
-          mesh.field[x, y, lyr.deg]= newdeg;
-
-          if (maxdelta < abs(prevdeg - newdeg)):
-            maxdelta = abs(prevdeg - newdeg)
-          if (monitor.maxtemp < newdeg):
-            monitor.maxtemp = newdeg
-
-          monitor.powerout = monitor.powerout + poweroutcell
-  return maxdelta
 
 def gsitersolve(lyr, mesh, monitor):
   finished = 0
