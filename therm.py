@@ -3,6 +3,8 @@
 # Thermal simulation prototype
 # Sun Jul 13 22:30:26 PDT 2014
 
+# TODO: also output a spice deck for verification purposes.
+
 import matplotlib.pyplot as plt
 import numpy as np
 from PyTrilinos import Epetra, AztecOO
@@ -261,7 +263,20 @@ class Solver:
     self.MyGlobalElements  = self.Map.MyGlobalElements()
     self.b                 = Epetra.Vector(self.Map)
     self.isoIdx            = 0
-    self.debug             = True
+    self.debug             = False
+    self.spice             = True
+    self.deck              = ''
+    self.GDamping          = 1e-12
+    self.BodyNodeCount              = 0
+    self.TopEdgeNodeCount           = 0
+    self.RightEdgeNodeCount         = 0
+    self.BottomEdgeNodeCount        = 0
+    self.LeftEdgeNodeCount          = 0
+    self.TopLeftCornerNodeCount     = 0
+    self.TopRightCornerNodeCount    = 0
+    self.BottomRightCornerNodeCount = 0
+    self.BottomLeftCornerNodeCount  = 0
+    self.BoundaryNodeCount          = 0
 
     # Make a python shadow data structure that records what is inside the Epetra data structures.
     # This is a non-sparse version used for debugging.
@@ -296,17 +311,24 @@ class Solver:
     self.loadMatrixTopRightCorner(lyr, mesh, matls)
     self.loadMatrixBottomRightCorner(lyr, mesh, matls)
     self.loadMatrixBottomLeftCorner(lyr, mesh, matls)
+    self.loadMatrixHeatSources(lyr, mesh)
     # b is the RHS, which are current sources for injected heat and voltage sources for 
-    #   boundary condition.
+    #   dirichlet boundary conditions.
 
-    # Add the boundary conditions.
-    # Heat sources
+  def loadMatrixHeatSources(self, lyr, mesh):
+    # Add the injected heat sources.
     for x in range(0, mesh.width):
       for y in range(0, mesh.height):
         nodeThis= mesh.getNodeAtXY(x, y)
         self.b[nodeThis]= mesh.field[x, y, lyr.heat]
         if self.debug == True:
           self.bs[nodeThis]= mesh.field[x, y, lyr.heat]
+        if self.spice == True:
+          if (mesh.field[x, y, lyr.heat] > 0.0):
+            thisSpiceNode=   "N" + str(x) + "_" + str(y)
+            thisHeatSource=   "I" + thisSpiceNode
+            thisHeat= -mesh.field[x, y, lyr.heat]
+            self.deck += thisHeatSource + " " + thisSpiceNode + " 0 DC " + str(thisHeat) + "\n"
 
   def loadMatrixBody(self, lyr, mesh, matls):
     GBoundary= matls.boundCond
@@ -327,13 +349,13 @@ class Solver:
         GUp=    2.0/(nodeResis + nodeUpResis)
         GLeft=  2.0/(nodeResis + nodeLeftResis)
         GDown=  2.0/(nodeResis + nodeDownResis)
-        GNode= GRight + GUp + GLeft + GDown
+        GNode= GRight + GUp + GLeft + GDown + self.GDamping
+        self.BodyNodeCount += 1
         if (mesh.ifield[x, y, lyr.isoflag] == 1):
           if self.debug == True:
             print "Setting boundaryNode body", nodeThis, " at ",x,",",y,", to temp", mesh.field[x, y, lyr.isodeg]
           GNode = self.addIsoNode(lyr, mesh, matls, nodeThis, x, y, GNode)
 
-#       print x, y, nodeThis
         self.A[nodeThis, nodeThis]= GNode
         self.A[nodeThis, nodeRight]= -GRight
         self.A[nodeRight, nodeThis]= -GRight
@@ -353,33 +375,14 @@ class Solver:
           self.As[nodeLeft, nodeThis]= -GLeft
           self.As[nodeThis, nodeDown]= -GDown
           self.As[nodeDown, nodeThis]= -GDown
-
-  def addIsoNode(self, lyr, mesh, matls, nodeThis, x, y, GNode):
-    GNode = GNode + matls.boundCond
-    boundaryNode = mesh.ifield[x, y, lyr.isonode]
-    self.b[self.isoIdx + mesh.nodeDcount]= mesh.field[x, y, lyr.isodeg]
-    self.A[nodeThis, nodeThis]= GNode
-    self.A[boundaryNode, self.isoIdx + mesh.nodeDcount]= 1.0
-    self.A[self.isoIdx + mesh.nodeDcount, boundaryNode]= 1.0
-    self.A[boundaryNode, boundaryNode]= matls.boundCond
-    self.A[boundaryNode, nodeThis]= -matls.boundCond
-    self.A[nodeThis, boundaryNode]= -matls.boundCond
-
-    if self.debug == True:
-      self.bs[self.isoIdx + mesh.nodeDcount]= mesh.field[x, y, lyr.isodeg]
-      self.As[nodeThis, nodeThis]= GNode
-      self.As[boundaryNode, self.isoIdx + mesh.nodeDcount]= 1.0
-      self.As[self.isoIdx + mesh.nodeDcount, boundaryNode]= 1.0
-      self.As[boundaryNode, boundaryNode]= matls.boundCond
-      self.As[boundaryNode, nodeThis]= -matls.boundCond
-      self.As[nodeThis, boundaryNode]= -matls.boundCond
-      print "  source vector idx= ", self.isoIdx
-      print "  node with thermal source attached= ", nodeThis
-      print "  node for boundary source= ", boundaryNode
-      print "  row for source vector 1 multiplier= ", self.isoIdx + mesh.nodeDcount
-   
-    self.isoIdx = self.isoIdx + 1
-    return GNode
+        if self.spice == True:
+          thisSpiceNode=   "N" + str(x)   + "_" + str(y)
+          spiceNodeRight=  "N" + str(x+1) + "_" + str(y)
+          spiceNodeDown=   "N" + str(x)   + "_" + str(y+1)
+          RRight= 1.0/GRight
+          RDown=  1.0/GDown
+          self.deck += "RFR" + thisSpiceNode + " " + thisSpiceNode + " " + spiceNodeRight + " " + str(RRight) + "\n"
+          self.deck += "RFD" + thisSpiceNode + " " + thisSpiceNode + " " + spiceNodeDown + " " + str(RDown) + "\n"
 
   def loadMatrixTopEdge(self, lyr, mesh, matls):
     GBoundary= matls.boundCond
@@ -397,7 +400,8 @@ class Solver:
       GRight= 2.0/(nodeResis + nodeRightResis)
       GLeft= 2.0/(nodeResis + nodeLeftResis)
       GDown= 2.0/(nodeResis + nodeDownResis)
-      GNode= GRight + GLeft + GDown
+      GNode= GRight + GLeft + GDown + self.GDamping
+      self.TopEdgeNodeCount += 1
 
       if (mesh.ifield[x, y, lyr.isoflag] == 1):
         if self.debug == True:
@@ -419,6 +423,14 @@ class Solver:
         self.As[nodeLeft, nodeThis]= -GLeft
         self.As[nodeThis, nodeDown]= -GDown
         self.As[nodeDown, nodeThis]= -GDown
+      if self.spice == True:
+        thisSpiceNode=   "N" + str(x)   + "_" + str(y)
+        spiceNodeRight=  "N" + str(x+1) + "_" + str(y)
+        spiceNodeDown=   "N" + str(x)   + "_" + str(y+1)
+        RRight= 1.0/GRight
+        RDown=  1.0/GDown
+        self.deck += "RTER" + thisSpiceNode + " " + thisSpiceNode + " " + spiceNodeRight + " " + str(RRight) + "\n"
+        self.deck += "RTED" + thisSpiceNode + " " + thisSpiceNode + " " + spiceNodeDown + " " + str(RDown) + "\n"
 
   def loadMatrixRightEdge(self, lyr, mesh, matls):
     GBoundary= matls.boundCond
@@ -436,7 +448,8 @@ class Solver:
       GUp= 2.0/(nodeResis + nodeUpResis)
       GLeft= 2.0/(nodeResis + nodeLeftResis)
       GDown= 2.0/(nodeResis + nodeDownResis)
-      GNode= GUp + GLeft + GDown
+      GNode= GUp + GLeft + GDown + self.GDamping
+      self.RightEdgeNodeCount += 1
       if (mesh.ifield[x, y, lyr.isoflag] == 1):
         if self.debug == True:
           print "Setting boundaryNode re", nodeThis, " at ",x,",",y,", to temp", mesh.field[x, y, lyr.isodeg]
@@ -457,6 +470,11 @@ class Solver:
         self.As[nodeLeft, nodeThis]= -GLeft
         self.As[nodeThis, nodeDown]= -GDown
         self.As[nodeDown, nodeThis]= -GDown
+      if self.spice == True:
+        thisSpiceNode=   "N" + str(x)   + "_" + str(y)
+        spiceNodeDown=   "N" + str(x)   + "_" + str(y+1)
+        RDown=  1.0/GDown
+        self.deck += "RRED" + thisSpiceNode + " " + thisSpiceNode + " " + spiceNodeDown + " " + str(RDown) + "\n"
     
   def loadMatrixBottomEdge(self, lyr, mesh, matls):
     GBoundary= matls.boundCond
@@ -474,7 +492,8 @@ class Solver:
       GRight= 2.0/(nodeResis + nodeRightResis)
       GUp= 2.0/(nodeResis + nodeUpResis)
       GLeft= 2.0/(nodeResis + nodeLeftResis)
-      GNode= GRight + GUp + GLeft
+      GNode= GRight + GUp + GLeft + self.GDamping
+      self.BottomEdgeNodeCount += 1
       if (mesh.ifield[x, y, lyr.isoflag] == 1):
         if self.debug == True:
           print "Setting boundaryNode be", nodeThis, " at ",x,",",y,", to temp", mesh.field[x, y, lyr.isodeg]
@@ -495,6 +514,11 @@ class Solver:
         self.As[nodeUp, nodeThis]= -GUp
         self.As[nodeThis, nodeLeft]= -GLeft
         self.As[nodeLeft, nodeThis]= -GLeft
+      if self.spice == True:
+        thisSpiceNode=   "N" + str(x)   + "_" + str(y)
+        spiceNodeRight=  "N" + str(x+1) + "_" + str(y)
+        RRight= 1.0/GRight
+        self.deck += "RBER" + thisSpiceNode + " " + thisSpiceNode + " " + spiceNodeRight + " " + str(RRight) + "\n"
 
   def loadMatrixLeftEdge(self, lyr, mesh, matls):
     GBoundary= matls.boundCond
@@ -512,7 +536,8 @@ class Solver:
       GRight= 2.0/(nodeResis + nodeRightResis)
       GUp= 2.0/(nodeResis + nodeUpResis)
       GDown= 2.0/(nodeResis + nodeDownResis)
-      GNode= GRight + GUp + GDown
+      GNode= GRight + GUp + GDown + self.GDamping
+      self.LeftEdgeNodeCount += 1
       if (mesh.ifield[x, y, lyr.isoflag] == 1):
         if self.debug == True:
           print "Setting boundaryNode le", nodeThis, " at ",x,",",y,", to temp", mesh.field[x, y, lyr.isodeg]
@@ -533,6 +558,14 @@ class Solver:
         self.As[nodeUp, nodeThis]= -GUp
         self.As[nodeThis, nodeDown]= -GDown
         self.As[nodeDown, nodeThis]= -GDown
+      if self.spice == True:
+        thisSpiceNode=   "N" + str(x)   + "_" + str(y)
+        spiceNodeRight=  "N" + str(x+1) + "_" + str(y)
+        spiceNodeDown=   "N" + str(x)   + "_" + str(y+1)
+        RRight= 1.0/GRight
+        RDown=  1.0/GDown
+        self.deck += "RLER" + thisSpiceNode + " " + thisSpiceNode + " " + spiceNodeRight + " " + str(RRight) + "\n"
+        self.deck += "RLED" + thisSpiceNode + " " + thisSpiceNode + " " + spiceNodeDown + " " + str(RDown) + "\n"
 
   def loadMatrixTopLeftCorner(self, lyr, mesh, matls):
     GBoundary= matls.boundCond
@@ -547,7 +580,8 @@ class Solver:
     nodeDownResis= mesh.field[x, y+1, lyr.resis]
     GRight= 2.0/(nodeResis + nodeRightResis)
     GDown= 2.0/(nodeResis + nodeDownResis)
-    GNode= GRight + GDown
+    GNode= GRight + GDown + self.GDamping
+    self.TopLeftCornerNodeCount += 1
     if (mesh.ifield[x, y, lyr.isoflag] == 1):
       if self.debug == True:
         print "Setting boundaryNode tlc", nodeThis, " at ",x,",",y,", to temp", mesh.field[x, y, lyr.isodeg]
@@ -564,6 +598,14 @@ class Solver:
       self.As[nodeRight, nodeThis]= -GRight
       self.As[nodeThis, nodeDown]= -GDown
       self.As[nodeDown, nodeThis]= -GDown
+    if self.spice == True:
+      thisSpiceNode=   "N" + str(x)   + "_" + str(y)
+      spiceNodeRight=  "N" + str(x+1) + "_" + str(y)
+      spiceNodeDown=   "N" + str(x)   + "_" + str(y+1)
+      RRight= 1.0/GRight
+      RDown=  1.0/GDown
+      self.deck += "RTLCR" + thisSpiceNode + " " + thisSpiceNode + " " + spiceNodeRight + " " + str(RRight) + "\n"
+      self.deck += "RTLCD" + thisSpiceNode + " " + thisSpiceNode + " " + spiceNodeDown + " " + str(RDown) + "\n"
 
   def loadMatrixTopRightCorner(self, lyr, mesh, matls):
     GBoundary= matls.boundCond
@@ -578,7 +620,8 @@ class Solver:
     nodeDownResis= mesh.field[x, y+1, lyr.resis]
     GLeft= 2.0/(nodeResis + nodeLeftResis)
     GDown= 2.0/(nodeResis + nodeDownResis)
-    GNode= GLeft + GDown
+    GNode= GLeft + GDown + self.GDamping
+    self.TopRightCornerNodeCount += 1
     if (mesh.ifield[x, y, lyr.isoflag] == 1):
       if self.debug == True:
         print "Setting boundaryNode trc", nodeThis, " at ",x,",",y,", to temp", mesh.field[x, y, lyr.isodeg]
@@ -595,6 +638,11 @@ class Solver:
       self.As[nodeLeft, nodeThis]= -GLeft
       self.As[nodeThis, nodeDown]= -GDown
       self.As[nodeDown, nodeThis]= -GDown
+    if self.spice == True:
+      thisSpiceNode=   "N" + str(x)   + "_" + str(y)
+      spiceNodeDown=   "N" + str(x)   + "_" + str(y+1)
+      RDown=  1.0/GDown
+      self.deck += "RTRCD" + thisSpiceNode + " " + thisSpiceNode + " " + spiceNodeDown + " " + str(RDown) + "\n"
 
   def loadMatrixBottomRightCorner(self, lyr, mesh, matls):
     GBoundary= matls.boundCond
@@ -609,7 +657,8 @@ class Solver:
     nodeLeftResis= mesh.field[x-1, y, lyr.resis]
     GUp= 2.0/(nodeResis + nodeUpResis)
     GLeft= 2.0/(nodeResis + nodeLeftResis)
-    GNode= GUp + GLeft
+    GNode= GUp + GLeft + self.GDamping
+    self.BottomRightCornerNodeCount += 1
     if (mesh.ifield[x, y, lyr.isoflag] == 1):
       if self.debug == True:
         print "Setting boundaryNode trc", nodeThis, " at ",x,",",y,", to temp", mesh.field[x, y, lyr.isodeg]
@@ -626,6 +675,7 @@ class Solver:
       self.As[nodeUp, nodeThis]= -GUp
       self.As[nodeThis, nodeLeft]= -GLeft
       self.As[nodeLeft, nodeThis]= -GLeft
+    # No output for self.spice here
 
   def loadMatrixBottomLeftCorner(self, lyr, mesh, matls):
     GBoundary= matls.boundCond
@@ -640,7 +690,8 @@ class Solver:
     nodeUpResis= mesh.field[x, y-1, lyr.resis]
     GRight= 2.0/(nodeResis + nodeRightResis)
     GUp= 2.0/(nodeResis + nodeUpResis)
-    GNode= GRight + GUp
+    GNode= GRight + GUp + self.GDamping
+    self.BottomLeftCornerNodeCount += 1
     if (mesh.ifield[x, y, lyr.isoflag] == 1):
       if self.debug == True:
         print "Setting boundaryNode blc", nodeThis, " at ",x,",",y,", to temp", mesh.field[x, y, lyr.isodeg]
@@ -657,8 +708,70 @@ class Solver:
       self.As[nodeRight, nodeThis]= -GRight
       self.As[nodeThis, nodeUp]= -GUp
       self.As[nodeUp, nodeThis]= -GUp
+    if self.spice == True:
+      thisSpiceNode=   "N" + str(x)   + "_" + str(y)
+      spiceNodeRight=  "N" + str(x+1) + "_" + str(y)
+      RRight= 1.0/GRight
+      self.deck += "RBLCR" + thisSpiceNode + " " + thisSpiceNode + " " + spiceNodeRight + " " + str(RRight) + "\n"
+
+  def addIsoNode(self, lyr, mesh, matls, nodeThis, x, y, GNode):
+    GNode = GNode + matls.boundCond
+    boundaryNode = mesh.ifield[x, y, lyr.isonode]
+    self.b[self.isoIdx + mesh.nodeDcount]= mesh.field[x, y, lyr.isodeg]
+    self.A[nodeThis, nodeThis]= GNode
+    self.A[boundaryNode, self.isoIdx + mesh.nodeDcount]= 1.0
+    self.A[self.isoIdx + mesh.nodeDcount, boundaryNode]= 1.0
+    self.A[boundaryNode, boundaryNode]= matls.boundCond
+    self.A[boundaryNode, nodeThis]= -matls.boundCond
+    self.A[nodeThis, boundaryNode]= -matls.boundCond
+
+    if self.debug == True:
+      self.bs[self.isoIdx + mesh.nodeDcount]= mesh.field[x, y, lyr.isodeg]
+      self.As[nodeThis, nodeThis]= GNode
+      self.As[boundaryNode, self.isoIdx + mesh.nodeDcount]= 1.0
+      self.As[self.isoIdx + mesh.nodeDcount, boundaryNode]= 1.0
+      self.As[boundaryNode, boundaryNode]= self.GDamping
+      self.As[boundaryNode, boundaryNode]= matls.boundCond
+      self.As[boundaryNode, nodeThis]= -matls.boundCond
+      self.As[nodeThis, boundaryNode]= -matls.boundCond
+      print "  source vector idx= ", self.isoIdx
+      print "  node with thermal source attached= ", nodeThis
+      print "  node for boundary source= ", boundaryNode
+      print "  row for source vector 1 multiplier= ", self.isoIdx + mesh.nodeDcount
+    if self.spice == True:
+      thisSpiceNode=   "N" + str(x)   + "_" + str(y)
+      thisIsoSource=   "V" + thisSpiceNode
+      thisBoundaryNode=  "NDIRI_" + str(x) + "_" + str(y)
+      thisBoundaryResistor=  "RDIRI_" + str(x) + "_" + str(y)
+      thisBoundaryResistance= 1.0/matls.boundCond
+      self.deck += thisIsoSource + " " + thisBoundaryNode + " 0 DC " + str(mesh.field[x, y, lyr.isodeg]) + "\n"
+      self.deck += thisBoundaryResistor + " " + thisSpiceNode + " " + thisBoundaryNode + " " + str(thisBoundaryResistance) + "\n"
+   
+    self.isoIdx = self.isoIdx + 1
+    self.BoundaryNodeCount += 1
+    return GNode
 
   def solveMatrix(self, lyr, mesh, iterations):
+
+    # Debugging output
+    if (self.debug == True):
+      print "Creating web page"
+      np.set_printoptions(threshold='nan', linewidth=10000)
+      f= open('result.html', 'w')
+      f.write(self.webpage(mesh, lyr))
+      f.close()
+
+    if (self.spice == True):
+# PATH=/usr/local/Xyce-Release-6.1.0-OPENSOURCE/bin:$PATH
+# runxyce therm.cki -a -r therm.asc -l therm.txt
+      f= open('therm.cki', 'w')
+      f.write("* Thermal network\n")
+      f.write(self.deck)
+      f.write(".tran .1 .1\n")
+      f.write(".print tran\n")
+      f.write(".end\n")
+      f.close()
+
     # x are the unknowns to be solved.
     # This set works:
     self.x = Epetra.Vector(self.Map)
@@ -703,11 +816,14 @@ class Solver:
     # This complains and fails
     # solver.SetAztecOption(AztecOO.AZ_solver, AztecOO.AZ_cg)
 
+    # This is incredibly fast but complains some:
+    solver.SetAztecOption(AztecOO.AZ_solver, AztecOO.AZ_cg_condnum)
+
     # This appears to be the default and it works:
     # solver.SetAztecOption(AztecOO.AZ_output, AztecOO.AZ_none)
 
     # This loads x with the solution to the problem
-    solver.Iterate(iterations, 1e-8)
+    solver.Iterate(iterations, 1e-5)
 
     self.Comm.Barrier()
 
@@ -725,7 +841,6 @@ class Solver:
         mesh.field[x, y, lyr.deg] = self.x[nodeThis]
         # print "Temp x y t ", x, y, self.x[nodeThis]
 
-    
     # Check boundary conditions
     temperatureStartNode= 0
     temperatureEndNode= mesh.solveTemperatureNodeCount()
@@ -744,26 +859,16 @@ class Solver:
     print "Power In = ", powerIn
     print "Power Out = ", powerOut
 
-    # Debugging output
-    if (self.debug == 1):
-      np.set_printoptions(threshold='nan', linewidth=10000)
-      f= open('result.html', 'w')
-      f.write(self.webpage(mesh, lyr))
-      f.close()
-
-#
-#
-#  TODO   Check conservation of energy in solution
-#         The matrix does not match Swathmore. The boundaries should create two nodes, not one.
-#         For development, use fewer boundary sources in the problem definition.
-#
+  def totalNodeCount(self):
+    totalNodeCount = self.BodyNodeCount + self.TopEdgeNodeCount + self.RightEdgeNodeCount + self.BottomEdgeNodeCount + self.LeftEdgeNodeCount + self.TopLeftCornerNodeCount + self.TopRightCornerNodeCount + self.BottomRightCornerNodeCount + self.BottomLeftCornerNodeCount + self.BoundaryNodeCount
+    return totalNodeCount
 
   def webpage(self, mesh, lyr):
     matrix= ''
     rhsStr= ''
     xhtml= ''
     col= 0
-    cols= ''
+    cols= '* '
 
     temperatureStartNode= 0
     temperatureEndNode= mesh.solveTemperatureNodeCount()
@@ -814,6 +919,26 @@ class Solver:
     vectors = vectors + "<tr><td><b>lhs</b></td>" + xhtml + "</tr>"
     vectors = "<table>" + vectors + "</table>"
 
+    # Counts
+    counts = "<tr><td>BodyNodeCount</td><td>" + str(self.BodyNodeCount) + "</td></tr>"
+    counts += "<tr><td>TopEdgeNodeCount</td><td>" + str(self.TopEdgeNodeCount) + "</td></tr>"
+    counts += "<tr><td>RightEdgeNodeCount</td><td>" + str(self.RightEdgeNodeCount) + "</td></tr>"
+    counts += "<tr><td>BottomEdgeNodeCount</td><td>" + str(self.BottomEdgeNodeCount) + "</td></tr>"
+    counts += "<tr><td>LeftEdgeNodeCount</td><td>" + str(self.LeftEdgeNodeCount) + "</td></tr>"
+    counts += "<tr><td>TopLeftCornerNodeCount</td><td>" + str(self.TopLeftCornerNodeCount) + "</td></tr>"
+    counts += "<tr><td>TopRightCornerNodeCount</td><td>" + str(self.TopRightCornerNodeCount) + "</td></tr>"
+    counts += "<tr><td>BottomRightCornerNodeCount</td><td>" + str(self.BottomRightCornerNodeCount) + "</td></tr>"
+    counts += "<tr><td>BoundaryNodeCount</td><td>" + str(self.BoundaryNodeCount) + "</td></tr>"
+    counts += "<tr><td>Total NodeCount</td><td>" + str(self.totalNodeCount()) + "</td></tr>"
+    counts += "<tr><td>Matrix Size</td><td>" + str(self.NumGlobalElements) + "</td></tr>"
+
+    counts += "Number of independent nodes in G matrix= " + str(mesh.nodeGcount) + "<br/>"
+    counts += "Number of independent nodes in GF matrix= " + str(mesh.nodeGFcount) + "<br/>"
+    counts += "Number of independent nodes in GB matrix= " + str(mesh.nodeGBcount) + "<br/>"
+    counts += "Number of independent nodes in D matrix= " + str(mesh.nodeDcount) + "<br/>"
+    counts += "Total number of independent nodes= " + str(mesh.nodeCount) + "<br/>"
+    counts = "<table>" + counts + "</table>"
+
     # Create web page
     head  = "<title>Matrix output</title>"
     body  = "<h1>Ax = b</h1>"
@@ -821,9 +946,17 @@ class Solver:
     body += "<pre>" + matrix + "</pre>"
     body += "<h3>Vectors</h3>"
     body += "<pre>" + vectors + "</pre>"
+    body += "<h3>Counts</h3>"
+    body += "<pre>" + counts + "</pre>"
     html= "<html><head>" + head + "</head><body>" + body + "</body></html>"
 
     return html
+
+# TODO: 
+#        Read Xyce source code to see their matrix algorithms.
+#        Create test harness for sweeps of problem size.
+#        Hook up PNG files.
+#        Do a DC analysis instead of TRAN, check memory usage
 
 def Main():
   lyr = Layers()
@@ -832,22 +965,22 @@ def Main():
   #    mesh = Mesh(5, 5, lyr)
   #  Maximal problem shows steady state in field near zero
   #    mesh = Mesh(1000, 1000, lyr), iterations= 400000 (needs 93965 iterations in 28662 seconds solve time)
-  #    real	372m26.483s
-  #    user	477m34.471s
-  #    sys	1m48.083s
-  mesh = Mesh(50, 50, lyr)
+  #    rea l372m26.483s
+  #    user 477m34.471s
+  #    sys 1m48.083s
+  showPlots= True
+  mesh = Mesh(250, 250, lyr)
   matls = Matls()
 
   defineproblem(lyr, mesh, matls)
   mesh.mapMeshToSolutionMatrix(lyr)
-# gsitersolve(lyr, mesh, monitor)
-# plotsolution(lyr, mesh)
 
   solv = Solver(lyr, mesh)
   solv.setDebug(False)
   solv.loadMatrix(lyr, mesh, matls)
   solv.solveMatrix(lyr, mesh, 400000)
-  plotsolution(lyr, mesh)
+  if (showPlots == True):
+    plotsolution(lyr, mesh)
 
 # Times without printing much.
 # Printing overhead is probably about 10% in this case.
