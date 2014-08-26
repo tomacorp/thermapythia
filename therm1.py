@@ -12,6 +12,7 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
+import subprocess, os
 from PyTrilinos import Epetra, AztecOO
 
 # Construction
@@ -28,12 +29,15 @@ class Layers:
     self.deg = 3
     self.flux = 4
     self.isodeg = 5
-    self.numdoublelayers = 6
+    self.spicedeg = 6
+    self.numdoublelayers = 7
 
-# Field layers for integer float values in mesh.ified
+# Field layers for integer values in mesh.ifield
     self.isonode = 0
     self.isoflag = 1
-    self.numintlayers = 2
+    self.spicenodenum = 2
+    self.numintlayers = 3
+
 
 # Convergence monitor
 class Monitors:
@@ -54,7 +58,7 @@ class Mesh:
   
   Counts the number of cells and the number of Dirichlet boundary conditions.
   This is useful for allocating memory size for before matrix loading.
-  These Dirichelt count is needed because the boundaries also have an associated thermal
+  These Dirichlet count is needed because the boundaries also have an associated thermal
   resistance between the boundary and the square mesh.
   This resistance results in an additional node.
   Creates a bidirectional mapping from the integer X,Y 2D space to a 1D node list.
@@ -71,7 +75,18 @@ class Mesh:
     self.nodeDcount = 0
     self.nodeCount = 0
     self.nodeGBcount = 0
-    self.nodeGFcount = 0
+    self.nodeGFcount = 0 
+    # Field name dictionary to map self.spicenodenum layer to string values
+    # The key is the spicenodename and the value is the spicenodenum.
+    self.spiceNodeName = {}
+    # Dictionary that maps a node name string to the X and Y coordinates in the mesh.
+    self.spiceNodeXName = {}
+    self.spiceNodeYName = {}
+    # Array where the index is the spicenodenum and the values are the x and y of in the mesh.
+    # This allows a sequence of ordered nodes in the spice raw file output to be loaded directly back into
+    # a layer in the mesh. Nodes start at 1. The first variable is time.
+    self.spiceNodeX = []
+    self.spiceNodeY = []
 
   def solveTemperatureNodeCount(self):
     """ 
@@ -211,51 +226,68 @@ def defineproblem(lyr, mesh, matls):
     # mesh.field[:, :, lyr.isoflag] = 0
     # mesh.field[:, :, lyr.deg]   = 23
     # mesh.field[:, :, lyr.flux]  = 0.0
+    
+class interactivePlot:
+  def __init__(self, lyr, mesh):
+    self.lyr     = lyr
+    self.mesh    = mesh  
 
-def plotsolution(lyr, mesh):
-  z1= mesh.field[:, :, lyr.resis];
-  z2= mesh.field[:, :, lyr.deg];
-  z3= mesh.field[:, :, lyr.isodeg];
-  z4= mesh.field[:, :, lyr.heat];
-  z5= mesh.ifield[:, :, lyr.isoflag];
+  def plotsolution(self):
+    self.plotResistance()
+    self.plotTemperature()
+    self.plotDirichlet()
+    self.plotHeatSources()
+    self.plotIsotherm()
+    self.show()
 
-  plt.figure(1)
-  plt.subplot(1,1,1)
-  plt.axes(aspect=1)
-  quad1= plt.pcolormesh(mesh.xr, mesh.yr, z1)
-  plt.colorbar()
-  plt.draw()
-  
-  plt.figure(2)
-  plt.subplot(1,1,1)
-  plt.axes(aspect=1)
-  quad2= plt.pcolormesh(mesh.xr, mesh.yr, z2)
-  plt.colorbar()
-  plt.draw()
-  
-  plt.figure(3)
-  plt.subplot(1,1,1)
-  plt.axes(aspect=1)
-  quad3= plt.pcolormesh(mesh.xr, mesh.yr, z3)
-  plt.colorbar()
-  plt.draw()
-  
-  plt.figure(4)
-  plt.subplot(1,1,1)
-  plt.axes(aspect=1)
-  quad4= plt.pcolormesh(mesh.xr, mesh.yr, z4)
-  plt.colorbar()
-  plt.draw()
+  def show(self):
+    plt.show()
 
-  plt.figure(5)
-  plt.subplot(1,1,1)
-  plt.axes(aspect=1)
-  quad4= plt.pcolormesh(mesh.xr, mesh.yr, z5)
-  plt.colorbar()
-  plt.draw()
+  def plotIsotherm(self):
+    z5= self.mesh.ifield[:, :, self.lyr.isoflag]; 
+    plt.figure(5)
+    plt.subplot(1,1,1)
+    plt.axes(aspect=1)
+    quad4= plt.pcolormesh(self.mesh.xr, self.mesh.yr, z5)
+    plt.colorbar()
+    plt.draw()
 
-  plt.show()
-  
+  def plotHeatSources(self):
+    z4= self.mesh.field[:, :, self.lyr.heat];
+    plt.figure(4)
+    plt.subplot(1,1,1)
+    plt.axes(aspect=1)
+    quad4= plt.pcolormesh(self.mesh.xr, self.mesh.yr, z4)
+    plt.colorbar()
+    plt.draw()
+
+  def plotDirichlet(self):
+    z3= self.mesh.field[:, :, self.lyr.isodeg];
+    plt.figure(3)
+    plt.subplot(1,1,1)
+    plt.axes(aspect=1)
+    quad3= plt.pcolormesh(self.mesh.xr, self.mesh.yr, z3)
+    plt.colorbar()
+    plt.draw()
+
+  def plotTemperature(self):
+    plt.figure(2)
+    z2= self.mesh.field[:, :, self.lyr.deg];
+    plt.subplot(1,1,1)
+    plt.axes(aspect=1)
+    quad2= plt.pcolormesh(self.mesh.xr, self.mesh.yr, z2)
+    plt.colorbar()
+    plt.draw()
+
+  def plotResistance(self):
+    z1= self.mesh.field[:, :, self.lyr.resis];
+    plt.figure(1)
+    plt.subplot(1,1,1)
+    plt.axes(aspect=1)
+    quad1= plt.pcolormesh(self.mesh.xr, self.mesh.yr, z1)
+    plt.colorbar()
+    plt.draw()
+    
 class Webpage:
 
   def __init__(self, solv, lyr, mesh):
@@ -380,6 +412,7 @@ class Solver:
     self.spice             = True
     self.deck              = ''
     self.GDamping          = 1e-12
+    self.s                 = 'U'
     self.BodyNodeCount              = 0
     self.TopEdgeNodeCount           = 0
     self.RightEdgeNodeCount         = 0
@@ -390,16 +423,12 @@ class Solver:
     self.BottomRightCornerNodeCount = 0
     self.BottomLeftCornerNodeCount  = 0
     self.BoundaryNodeCount          = 0
-    
-    
-
     # Make a python shadow data structure that records what is inside the Epetra data structures.
     # This is a non-sparse version used for debugging.
     # This can be used to print out what is going on.
     # Without it, the data structure is hard to access.
     self.bs= []
-    self.x= []
-    
+    self.x= []    
     
   def setDebug(self, flag):
     if flag == True:
@@ -444,7 +473,7 @@ class Solver:
           self.bs[nodeThis]= mesh.field[x, y, lyr.heat]
         if self.spice == True:
           if (mesh.field[x, y, lyr.heat] > 0.0):
-            thisSpiceNode=   "N" + str(x) + "_" + str(y)
+            thisSpiceNode=   "N" + str(x) + self.s + str(y)
             thisHeatSource=   "I" + thisSpiceNode
             thisHeat= -mesh.field[x, y, lyr.heat]
             self.deck += thisHeatSource + " " + thisSpiceNode + " 0 DC " + str(thisHeat) + "\n"
@@ -495,9 +524,11 @@ class Solver:
           self.As[nodeThis, nodeDown]= -GDown
           self.As[nodeDown, nodeThis]= -GDown
         if self.spice == True:
-          thisSpiceNode=   "N" + str(x)   + "_" + str(y)
-          spiceNodeRight=  "N" + str(x+1) + "_" + str(y)
-          spiceNodeDown=   "N" + str(x)   + "_" + str(y+1)
+          thisSpiceNode=   "N" + str(x)   + self.s + str(y)
+          spiceNodeRight=  "N" + str(x+1) + self.s + str(y)
+          spiceNodeDown=   "N" + str(x)   + self.s + str(y+1)
+          mesh.spiceNodeXName[thisSpiceNode] = x
+          mesh.spiceNodeYName[thisSpiceNode] = y
           RRight= 1.0/GRight
           RDown=  1.0/GDown
           self.deck += "RFR" + thisSpiceNode + " " + thisSpiceNode + " " + spiceNodeRight + " " + str(RRight) + "\n"
@@ -543,9 +574,11 @@ class Solver:
         self.As[nodeThis, nodeDown]= -GDown
         self.As[nodeDown, nodeThis]= -GDown
       if self.spice == True:
-        thisSpiceNode=   "N" + str(x)   + "_" + str(y)
-        spiceNodeRight=  "N" + str(x+1) + "_" + str(y)
-        spiceNodeDown=   "N" + str(x)   + "_" + str(y+1)
+        thisSpiceNode=   "N" + str(x)   + self.s + str(y)
+        spiceNodeRight=  "N" + str(x+1) + self.s + str(y)
+        spiceNodeDown=   "N" + str(x)   + self.s + str(y+1)
+        mesh.spiceNodeXName[thisSpiceNode] = x
+        mesh.spiceNodeYName[thisSpiceNode] = y        
         RRight= 1.0/GRight
         RDown=  1.0/GDown
         self.deck += "RTER" + thisSpiceNode + " " + thisSpiceNode + " " + spiceNodeRight + " " + str(RRight) + "\n"
@@ -590,8 +623,10 @@ class Solver:
         self.As[nodeThis, nodeDown]= -GDown
         self.As[nodeDown, nodeThis]= -GDown
       if self.spice == True:
-        thisSpiceNode=   "N" + str(x)   + "_" + str(y)
-        spiceNodeDown=   "N" + str(x)   + "_" + str(y+1)
+        thisSpiceNode=   "N" + str(x)   + self.s + str(y)
+        spiceNodeDown=   "N" + str(x)   + self.s + str(y+1)
+        mesh.spiceNodeXName[thisSpiceNode] = x
+        mesh.spiceNodeYName[thisSpiceNode] = y        
         RDown=  1.0/GDown
         self.deck += "RRED" + thisSpiceNode + " " + thisSpiceNode + " " + spiceNodeDown + " " + str(RDown) + "\n"
     
@@ -634,8 +669,10 @@ class Solver:
         self.As[nodeThis, nodeLeft]= -GLeft
         self.As[nodeLeft, nodeThis]= -GLeft
       if self.spice == True:
-        thisSpiceNode=   "N" + str(x)   + "_" + str(y)
-        spiceNodeRight=  "N" + str(x+1) + "_" + str(y)
+        thisSpiceNode=   "N" + str(x)   + self.s + str(y)
+        spiceNodeRight=  "N" + str(x+1) + self.s + str(y)
+        mesh.spiceNodeXName[thisSpiceNode] = x
+        mesh.spiceNodeYName[thisSpiceNode] = y        
         RRight= 1.0/GRight
         self.deck += "RBER" + thisSpiceNode + " " + thisSpiceNode + " " + spiceNodeRight + " " + str(RRight) + "\n"
 
@@ -678,9 +715,11 @@ class Solver:
         self.As[nodeThis, nodeDown]= -GDown
         self.As[nodeDown, nodeThis]= -GDown
       if self.spice == True:
-        thisSpiceNode=   "N" + str(x)   + "_" + str(y)
-        spiceNodeRight=  "N" + str(x+1) + "_" + str(y)
-        spiceNodeDown=   "N" + str(x)   + "_" + str(y+1)
+        thisSpiceNode=   "N" + str(x)   + self.s + str(y)
+        spiceNodeRight=  "N" + str(x+1) + self.s + str(y)
+        spiceNodeDown=   "N" + str(x)   + self.s + str(y+1)
+        mesh.spiceNodeXName[thisSpiceNode] = x
+        mesh.spiceNodeYName[thisSpiceNode] = y        
         RRight= 1.0/GRight
         RDown=  1.0/GDown
         self.deck += "RLER" + thisSpiceNode + " " + thisSpiceNode + " " + spiceNodeRight + " " + str(RRight) + "\n"
@@ -718,9 +757,11 @@ class Solver:
       self.As[nodeThis, nodeDown]= -GDown
       self.As[nodeDown, nodeThis]= -GDown
     if self.spice == True:
-      thisSpiceNode=   "N" + str(x)   + "_" + str(y)
-      spiceNodeRight=  "N" + str(x+1) + "_" + str(y)
-      spiceNodeDown=   "N" + str(x)   + "_" + str(y+1)
+      thisSpiceNode=   "N" + str(x)   + self.s + str(y)
+      spiceNodeRight=  "N" + str(x+1) + self.s + str(y)
+      spiceNodeDown=   "N" + str(x)   + self.s + str(y+1)
+      mesh.spiceNodeXName[thisSpiceNode] = x
+      mesh.spiceNodeYName[thisSpiceNode] = y      
       RRight= 1.0/GRight
       RDown=  1.0/GDown
       self.deck += "RTLCR" + thisSpiceNode + " " + thisSpiceNode + " " + spiceNodeRight + " " + str(RRight) + "\n"
@@ -758,8 +799,10 @@ class Solver:
       self.As[nodeThis, nodeDown]= -GDown
       self.As[nodeDown, nodeThis]= -GDown
     if self.spice == True:
-      thisSpiceNode=   "N" + str(x)   + "_" + str(y)
-      spiceNodeDown=   "N" + str(x)   + "_" + str(y+1)
+      thisSpiceNode=   "N" + str(x)   + self.s + str(y)
+      spiceNodeDown=   "N" + str(x)   + self.s + str(y+1)
+      mesh.spiceNodeXName[thisSpiceNode] = x
+      mesh.spiceNodeYName[thisSpiceNode] = y      
       RDown=  1.0/GDown
       self.deck += "RTRCD" + thisSpiceNode + " " + thisSpiceNode + " " + spiceNodeDown + " " + str(RDown) + "\n"
 
@@ -794,7 +837,11 @@ class Solver:
       self.As[nodeUp, nodeThis]= -GUp
       self.As[nodeThis, nodeLeft]= -GLeft
       self.As[nodeLeft, nodeThis]= -GLeft
-    # No output for self.spice here
+    if self.spice == True:
+      thisSpiceNode=   "N" + str(x)   + self.s + str(y)
+      spiceNodeDown=   "N" + str(x)   + self.s + str(y+1)
+      mesh.spiceNodeXName[thisSpiceNode] = x
+      mesh.spiceNodeYName[thisSpiceNode] = y      
 
   def loadMatrixBottomLeftCorner(self, lyr, mesh, matls):
     GBoundary= matls.boundCond
@@ -828,8 +875,10 @@ class Solver:
       self.As[nodeThis, nodeUp]= -GUp
       self.As[nodeUp, nodeThis]= -GUp
     if self.spice == True:
-      thisSpiceNode=   "N" + str(x)   + "_" + str(y)
-      spiceNodeRight=  "N" + str(x+1) + "_" + str(y)
+      thisSpiceNode=   "N" + str(x)   + self.s + str(y)
+      spiceNodeRight=  "N" + str(x+1) + self.s + str(y)
+      mesh.spiceNodeXName[thisSpiceNode] = x
+      mesh.spiceNodeYName[thisSpiceNode] = y      
       RRight= 1.0/GRight
       self.deck += "RBLCR" + thisSpiceNode + " " + thisSpiceNode + " " + spiceNodeRight + " " + str(RRight) + "\n"
 
@@ -858,10 +907,10 @@ class Solver:
       print "  node for boundary source= ", boundaryNode
       print "  row for source vector 1 multiplier= ", self.isoIdx + mesh.nodeDcount
     if self.spice == True:
-      thisSpiceNode=   "N" + str(x)   + "_" + str(y)
+      thisSpiceNode=   "N" + str(x)   + self.s + str(y)
       thisIsoSource=   "V" + thisSpiceNode
-      thisBoundaryNode=  "NDIRI_" + str(x) + "_" + str(y)
-      thisBoundaryResistor=  "RDIRI_" + str(x) + "_" + str(y)
+      thisBoundaryNode=  "NDIRI" + self.s + str(x) + self.s + str(y)
+      thisBoundaryResistor=  "RDIRI" + self.s + str(x) + self.s + str(y)
       thisBoundaryResistance= 1.0/matls.boundCond
       self.deck += thisIsoSource + " " + thisBoundaryNode + " 0 DC " + str(mesh.field[x, y, lyr.isodeg]) + "\n"
       self.deck += thisBoundaryResistor + " " + thisSpiceNode + " " + thisBoundaryNode + " " + str(thisBoundaryResistance) + "\n"
@@ -873,17 +922,10 @@ class Solver:
   def solveMatrix(self, lyr, mesh, iterations):
 
     # Debugging output
-    # self.createWebPage(self, lyr, mesh)
-
-    self.createSpiceNetlist()
-
     # x are the unknowns to be solved.
-    # This set works:
     self.x = Epetra.Vector(self.Map)
     self.A.FillComplete()
     solver = AztecOO.AztecOO(self.A, self.x, self.b)
-
-
     solver.SetAztecOption(AztecOO.AZ_solver, AztecOO.AZ_cg_condnum)
     # This loads x with the solution to the problem
     solver.Iterate(iterations, 1e-5)
@@ -906,7 +948,7 @@ class Solver:
       for y in range(0, mesh.height):
         nodeThis= mesh.getNodeAtXY(x, y)
         mesh.field[x, y, lyr.deg] = self.x[nodeThis]
-        print "Temp x y t ", x, y, self.x[nodeThis]
+    #   print "Temp x y t ", x, y, self.x[nodeThis]
 
   def checkBoundaryConditions(self, mesh, lyr):
     # Check boundary conditions
@@ -927,23 +969,86 @@ class Solver:
     print "Power In = ", powerIn
     print "Power Out = ", powerOut
 
-
-
-  def createSpiceNetlist(self):
-    if (self.spice == True):
-# PATH=/usr/local/Xyce-Release-6.1.0-OPENSOURCE/bin:$PATH
-# runxyce therm.cki -a -r therm.asc -l therm.txt
-      f= open('therm.cki', 'w')
-      f.write("* Thermal network\n")
-      f.write(self.deck)
-      f.write(".tran .1 .1\n")
-      f.write(".print tran\n")
-      f.write(".end\n")
-      f.close()
-
   def totalNodeCount(self):
     totalNodeCount = self.BodyNodeCount + self.TopEdgeNodeCount + self.RightEdgeNodeCount + self.BottomEdgeNodeCount + self.LeftEdgeNodeCount + self.TopLeftCornerNodeCount + self.TopRightCornerNodeCount + self.BottomRightCornerNodeCount + self.BottomLeftCornerNodeCount + self.BoundaryNodeCount
     return totalNodeCount
+  
+class Spice:
+  def __init__(self, solver):
+    self.solver= solver
+    self.simbasename= 'therm'
+    self.ckiname= self.simbasename + '.cki'
+    self.ascname= self.simbasename + '.asc'
+    self.txtname= self.simbasename + '.txt'
+    
+  def createSpiceNetlist(self):
+    """Method to write a spice deck based on what was loaded by the solver"""
+    f= open(self.simbasename + '.cki', 'w')
+    f.write("* Thermal network\n")
+    f.write(self.solver.deck)
+    f.write(".tran .1 .1\n")
+    f.write(".print tran\n")
+    f.write(".end\n")
+    f.close()
+      
+  def runSpiceNetlist(self):
+    """Method to execute xyce"""
+    xycePath = "/usr/local/Xyce-Release-6.1.0-OPENSOURCE/bin"
+    xyceCmd = [xycePath + "/runxyce", self.ckiname, "-a", "-r", self.ascname, "-l", self.txtname]
+    thisEnv = os.environ.copy()
+    thisEnv["PATH"] = xycePath + ":" + thisEnv["PATH"]
+    subprocess.Popen(xyceCmd, env=thisEnv)
+    
+  def readSpiceResults(self, mesh):
+    """Method to read results from spice simulation"""
+    f= open(self.simbasename + '.asc', 'r')
+    for line in f:
+      if (line == 'Variables:\n'):
+        break      
+      (name, val)= line.strip().split(': ')
+      print "Name: " + name + ", val: " + val
+      
+
+    for line in f:
+      if (line == 'Values:\n'):
+        break
+      (idx, nodename, nodetype)= line.strip().split('\t')
+      nodeidx= int(idx)
+      if (nodeidx == 0):
+        continue
+      if (nodename in mesh.spiceNodeXName):
+        print nodename + ": " + idx + " " + str(mesh.spiceNodeXName[nodename]) + " " + str(mesh.spiceNodeYName[nodename])
+        mesh.spiceNodeX.append(mesh.spiceNodeXName[nodename])
+        mesh.spiceNodeY.append(mesh.spiceNodeYName[nodename])
+
+    atSampleTime= False
+    inTimePoint = True
+    idx= 0
+    for line in f:
+      if (atSampleTime == True):
+        idx += 1
+        voltage= line.strip()
+        if (line == '\n'):
+          break
+        if (idx < len(mesh.spiceNodeX)):
+          # TODO: Add to mesh layer here for visualization.
+          print str(idx) + ' ' + voltage + ' ' + str(mesh.spiceNodeX[idx]) + ' ' + str(mesh.spiceNodeY[idx])
+        continue
+      if (inTimePoint == True):
+        (timeIteration, time)= line.strip().split('\t')
+        if (abs(float(time) - 0.1) < .0001):
+          atSampleTime= True
+          continue
+      if (line == '\n'):
+        inTimePoint = True
+        continue
+      else:
+        inTimePoint = False
+        
+      
+      
+    
+    f.close()
 
 def Main():
   lyr = Layers()
@@ -956,10 +1061,18 @@ def Main():
 
   defineproblem(lyr, mesh, matls)
   mesh.mapMeshToSolutionMatrix(lyr)
-
+  
   solv = Solver(lyr, mesh)
   solv.setDebug(False)
   solv.loadMatrix(lyr, mesh, matls)
+  
+  useSpice= True
+  if (useSpice == True):
+    spice= Spice(solv)
+    spice.createSpiceNetlist()
+    spice.runSpiceNetlist()
+    spice.readSpiceResults(mesh)
+    
   solv.solveMatrix(lyr, mesh, 400000)
   
   if (solv.debug == True):
@@ -967,7 +1080,9 @@ def Main():
     webpage.createWebPage()
   
   if (showPlots == True):
-    plotsolution(lyr, mesh)
+    plots= interactivePlot(lyr, mesh)
+    plots.plotTemperature()
+    plots.show()
 
 
 Main()
