@@ -457,7 +457,7 @@ class Solver:
   #
     
   # A is the problem matrix
-  # Modified nodal analysis
+  # Modified nodal analysis formulation is from:
   # http://www.swarthmore.edu/NatSci/echeeve1/Ref/mna/MNA2.html
 
   def loadMatrix(self, lyr, mesh, matls):
