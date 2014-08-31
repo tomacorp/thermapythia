@@ -6,19 +6,17 @@
 # TODO:  Read Xyce source code to see their matrix algorithms.
 #        Create test harness for sweeps of problem size.
 #        Hook up PNG files.
-#        Do a DC analysis instead of TRAN, check memory usage
+#        Do a DC analysis instead of TRAN, check memory usage.
 #        Measure xyce memory usage with 
 #          http://stackoverflow.com/questions/13607391/subprocess-memory-usage-in-python
 
+import subprocess, os
+import pstats
+import cProfile
 import matplotlib.pyplot as plt
 import numpy as np
-import subprocess, os
 from PyTrilinos import Epetra, AztecOO
 
-# Construction
-
-
-# Layers
 class Layers:
   def __init__(self):
 
@@ -62,7 +60,8 @@ class Mesh:
   resistance between the boundary and the square mesh.
   This resistance results in an additional node for every boundary square.
   
-  Creates a bidirectional mapping from the integer X,Y 2D space to a 1D node list.
+  Creates a bidirectional mapping from the integer X,Y 2D space to the 1D node list
+  that is used for solving the sparse matrix.
   
   """
 
@@ -121,12 +120,20 @@ class Mesh:
     return node
 
   def getXAtNode(self, node):
+    """
+    def getXAtNode(Mesh self, int node)
+    Given a node, find the x coordinate of the mesh element
+    """
     if (node > self.width * self.height - 1):
       return ''
     x = node % self.width
     return x
   
   def getYAtNode(self, node):
+    """
+    def getXAtNode(Mesh self, int node)
+    Given a node, find the y coordinate of the mesh element
+    """    
     if (node > self.width * self.height - 1):
       return ''
     x = self.getXAtNode(node)
@@ -135,7 +142,18 @@ class Mesh:
     return y
 
   def mapMeshToSolutionMatrix(self, lyr):
-
+    """
+    mapMeshToSolutionMatrix(Mesh self, Layers lyr)
+    Based on the mesh, find the number of the different types of nodes
+    that will be in the matrix A. These numbers need to be known in
+    advance of constructing the matrix.
+    The input is the width and height of the mesh, and the field with
+    the location of the Dirichlet boundary condition nodes.
+    One node is for the 1 off-diagonal entries for the voltage sources,
+    and the second node is because there is a resistor that connects
+    the Dirichlet boundary condition to the mesh. This means that the
+    voltage source creates another voltage node.
+    """
     self.nodeGcount = self.getNodeAtXY(self.width - 1, self.height - 1)
     self.nodeCount = self.nodeGcount + 1
     self.nodeGFcount = self.nodeCount
@@ -143,7 +161,7 @@ class Mesh:
     for x in range(0, self.width):
       for y in range(0, self.height):
         if (self.ifield[x, y, lyr.isoflag] == 1):
-          print "Mapping mesh isothermal node at (x, y) = (", x, ", ", y, ")"
+          # print "Mapping mesh isothermal node at (x, y) = (", x, ", ", y, ")"
           # Every boundary condition gets a new node
           self.nodeGcount = self.nodeGcount + 1
           self.nodeGBcount = self.nodeGBcount + 1
@@ -165,59 +183,7 @@ class Matls:
     self.copperCond = 10
     self.boundCond = 100
 
-# This can scale by using a PNG input instead of code
-def defineproblem(lyr, mesh, matls):
-  """
-  defineproblem(Layer lyr, Mesh mesh, Matls matls)
-  Create a sample test problem for thermal analysis that can scale
-  to a wide variety of sizes.
-  It initializes the mesh based on fractions of the size of the mesh.
-  The conductivities in the problem are based on the material properties
-  in the matls object.
-  """
 
-  mesh.field[:, :, lyr.heat]  = 0.0
-  mesh.field[:, :, lyr.resis] = matls.copperCond
-  mesh.field[:, :, lyr.deg]   = 20
-  mesh.field[:, :, lyr.flux]  = 0.0
-  mesh.field[:, :, lyr.isodeg] = 0.0
-  mesh.ifield[:, :, lyr.isoflag] = 0
-  mesh.ifield[:, :, lyr.isonode] = 0
-  
-  # Heat source
-  hsx= 0.5
-  hsy= 0.5
-  hswidth= 0.25
-  hsheight= 0.25
-  heat= 1.0
-  srcl= round(mesh.width*(hsx-hswidth*0.5))
-  srcr= round(mesh.width*(hsx+hswidth*0.5))
-  srct= round(mesh.height*(hsy-hsheight*0.5))
-  srcb= round(mesh.height*(hsy+hsheight*0.5))
-  numHeatCells= (srcr - srcl)*(srcb-srct)
-  heatPerCell= heat/numHeatCells
-  print "Heat per cell = ", heatPerCell
-  mesh.field[srcl:srcr, srct:srcb, lyr.heat] = heatPerCell
-  mesh.field[srcl:srcr, srct:srcb, lyr.resis] = 1.0
-  
-  # Boundary conditions
-  mesh.field[0, 0:mesh.height, lyr.isodeg] = 25.0
-  mesh.field[mesh.width-1, 0:mesh.height, lyr.isodeg] = 25.0
-  mesh.field[0:mesh.width, 0, lyr.isodeg] = 25.0
-  mesh.field[0:mesh.width, mesh.height-1, lyr.isodeg] = 25.0
-  mesh.ifield[0, 0:mesh.height, lyr.isoflag] = 1
-  mesh.ifield[mesh.width-1, 0:mesh.height, lyr.isoflag] = 1
-  mesh.ifield[0:mesh.width, 0, lyr.isoflag] = 1
-  mesh.ifield[0:mesh.width, mesh.height-1, lyr.isoflag] = 1
-  
-  # Thermal conductors
-  condwidth= 0.05
-  cond1l= round(mesh.width*hsx - mesh.width*condwidth*0.5)
-  cond1r= round(mesh.width*hsx + mesh.width*condwidth*0.5)
-  cond1t= round(mesh.height*hsy - mesh.height*condwidth*0.5)
-  cond1b= round(mesh.height*hsy + mesh.height*condwidth*0.5)
-  mesh.field[0:mesh.width, cond1t:cond1b, lyr.resis] = matls.copperCond
-  mesh.field[cond1l:cond1r, 0:mesh.height, lyr.resis] = matls.copperCond
 
 class interactivePlot:
   def __init__(self, lyr, mesh):
@@ -225,10 +191,15 @@ class interactivePlot:
     self.mesh    = mesh  
 
   def plotsolution(self):
+    """
+    plotsolution(interactivePlot self)
+    Plot the problem grids and also the solution grid.
+    """
     self.plotResistance()
     self.plotTemperature()
     self.plotDirichlet()
     self.plotHeatSources()
+    self.plotSpicedeg()
     self.plotIsotherm()
     self.show()
 
@@ -236,60 +207,89 @@ class interactivePlot:
     plt.show()
 
   def plotIsotherm(self):
+    """
+    Make a plot that shows which nodes have Dirichlet boundary conditions
+    attached to them through a resistor
+    """
     z5= self.mesh.ifield[:, :, self.lyr.isoflag]; 
     plt.figure(5)
     plt.subplot(1,1,1)
     plt.axes(aspect=1)
     quad4= plt.pcolormesh(self.mesh.xr, self.mesh.yr, z5)
     plt.colorbar()
+    plt.title('Nodes with Dirichlet boundary conditions map')
     plt.draw()
 
   def plotHeatSources(self):
+    """
+    Make a plot that shows which nodes have heat sources attached.
+    """
     z4= self.mesh.field[:, :, self.lyr.heat];
     plt.figure(4)
     plt.subplot(1,1,1)
     plt.axes(aspect=1)
     quad4= plt.pcolormesh(self.mesh.xr, self.mesh.yr, z4)
     plt.colorbar()
+    plt.title('Heat sources map')
     plt.draw()
 
   def plotDirichlet(self):
+    """
+    Make a plot that shows the relative temperature of the Dirichlet
+    boundary condition nodes.
+    """
     z3= self.mesh.field[:, :, self.lyr.isodeg];
     plt.figure(3)
     plt.subplot(1,1,1)
     plt.axes(aspect=1)
     quad3= plt.pcolormesh(self.mesh.xr, self.mesh.yr, z3)
     plt.colorbar()
+    plt.title('Dirichlet boundary conditions temperature map')
     plt.draw()
 
   def plotTemperature(self):
+    """
+    Make a plot that shows the temperature of the mesh nodes.
+    """
     plt.figure(2)
     z2= self.mesh.field[:, :, self.lyr.deg];
     plt.subplot(1,1,1)
     plt.axes(aspect=1)
     quad2= plt.pcolormesh(self.mesh.xr, self.mesh.yr, z2)
     plt.colorbar()
+    plt.title('AztecOO heat map')
     plt.draw()
 
   def plotResistance(self):
+    """
+    Make a plot that shows the thermal resistance of the materials in the mesh nodes.
+    """
     z1= self.mesh.field[:, :, self.lyr.resis];
     plt.figure(1)
     plt.subplot(1,1,1)
     plt.axes(aspect=1)
     quad1= plt.pcolormesh(self.mesh.xr, self.mesh.yr, z1)
     plt.colorbar()
+    plt.title('Thermal resistance map')
     plt.draw()
     
   def plotSpicedeg(self):
+    """
+    Make a plot that shows the temperature of the mesh nodes as simulated by Xyce.
+    """
     z1= self.mesh.field[:, :, self.lyr.spicedeg];
     plt.figure(1)
     plt.subplot(1,1,1)
     plt.axes(aspect=1)
     quad1= plt.pcolormesh(self.mesh.xr, self.mesh.yr, z1)
     plt.colorbar()
+    plt.title('Spice heat map')
     plt.draw() 
     
   def plotLayerDifference(self, layer1, layer2):
+    """
+    Make a plot that shows the difference between two values in the mesh.
+    """
     z1= self.mesh.field[:, :, layer1];
     z2= self.mesh.field[:, :, layer2];
     z3= z1 - z2
@@ -298,6 +298,7 @@ class interactivePlot:
     plt.axes(aspect=1)
     quad1= plt.pcolormesh(self.mesh.xr, self.mesh.yr, z3)
     plt.colorbar()
+    plt.title('Difference heat map')
     plt.draw()    
     
     
@@ -308,8 +309,13 @@ class Webpage:
     self.solver = solv
     self.lyr = lyr
     self.mesh = mesh
+    self.maxWebPageSize = 100
     
   def createWebPage(self):
+    matrixSize= self.mesh.solveTemperatureNodeCount()
+    if matrixSize > self.maxWebPageSize:
+      print "Web page skipped because problem size is " + matrixSize + " which is larger than limit " + self.maxWebPageSize
+      return
     print "Creating web page"
     np.set_printoptions(threshold='nan', linewidth=10000)
     f= open('result.html', 'w')
@@ -363,6 +369,8 @@ class Webpage:
       cols = cols + "<td>" + str(col) + "</td>"
       col = col + 1
     matrix = "<table>" + matrix + "</table>"
+    
+    mostCommon= self.solver.nonzeroMostCommonCount()
   
     # Create vector table
     vectors =           "<tr><td><b>col</b></td>" + cols + "</tr>"
@@ -391,6 +399,7 @@ class Webpage:
     counts += "Number of independent nodes in GB matrix= " + str(self.mesh.nodeGBcount) + "<br/>"
     counts += "Number of independent nodes in D matrix= " + str(self.mesh.nodeDcount) + "<br/>"
     counts += "Total number of independent nodes= " + str(self.mesh.nodeCount) + "<br/>"
+    counts += "Most Common number of nonzero matrix entries per row= " + str(mostCommon) + "<br/>"
     counts = "<table>" + counts + "</table>"
   
     # Create web page
@@ -405,24 +414,64 @@ class Webpage:
     self.html= "<html><head>" + head + "</head><body>" + body + "</body></html>"  
 
 class Solver:
+  """
+  The Solver class loads a matrix and solves it.
+  It also optionally loads a spice netlist and a debugging structure.
+  
+  A matrix is in sections:
+    
+        |  G   B  |
+    A = |  C   D  |
+       G transconductance matrix
+       B sources, which in this case are just 1s
+       C transpose of B
+       D zeroes
+    G is in two sections, which are the upper left GF (for field) and GB (for boundary)
+    The analysis is of the form  Ax = b
+    For rows in b corresponding to G,  
+       b is the known value of the current (constant power in thermal circuits) sources
+    For rows in b corresponding to D, (constant temperature boundary conditions) 
+       b is the known value of temperature at the boundary.
+    The number of rows in D is self.nodeDcount
+    The number of rows in G is self.nodeGcount
+    The number of rows in GF is self.nodeGFcount
+    The number of rows in GB is self.nodeGBcount
+    The total number of rows in A is self.nodeCount
+  
+    The solution to the matrix is the vector x
+    For rows in x corresponding to G, these are voltages (temperature)
+    For rows in x corresponding to D, these are currents (power flow) in the boundary condition.
+  
+    For energy balance in steady state, the current into the constant-temperature boundary condition 
+    must equal the current from the constant-power thermal sources.
+  
+    The index of the last nodes in the G submatrix for the field plus one is the number
+    of nodes in the field GF. Add the boundary nodes GB to G.
+  
+    Also count the number of boundary sources, which is the size of the D matrix.   
+  """
 
   def __init__(self, lyr, mesh):
-    # define the communicator (Serial or parallel, depending on your configure
-    # line), then initialize a distributed matrix of size 4. The matrix is empty,
-    # `0' means to allocate for 0 elements on each row (better estimates make the
-    # code faster). `NumMyElements' is the number of rows that are locally hosted 
-    # by the calling processor; `MyGlobalElements' is the global ID of locally 
-    # hosted rows.
+    """
+    define the communicator (Serial or parallel, depending on your configure
+    line), then initialize a distributed matrix of size 4. The matrix is empty,
+    `0' means to allocate for 0 elements on each row (better estimates make the
+    code faster). `NumMyElements' is the number of rows that are locally hosted 
+    by the calling processor; `MyGlobalElements' is the global ID of locally 
+    hosted rows.
+    """
+    mostCommonNonzeroEntriesPerRow = 5
     self.Comm              = Epetra.PyComm()
     self.NumGlobalElements = mesh.nodeCount
     self.Map               = Epetra.Map(self.NumGlobalElements, 0, self.Comm)
-    self.A                 = Epetra.CrsMatrix(Epetra.Copy, self.Map, 0)
+    self.A                 = Epetra.CrsMatrix(Epetra.Copy, self.Map, mostCommonNonzeroEntriesPerRow)
     self.NumMyElements     = self.Map.NumMyElements()
     self.MyGlobalElements  = self.Map.MyGlobalElements()
     self.b                 = Epetra.Vector(self.Map)
     self.isoIdx            = 0
-    self.debug             = True
-    self.spice             = True
+    self.debug             = False
+    self.spice             = False
+    self.aztec             = True
     self.deck              = ''
     self.GDamping          = 1e-12
     self.s                 = 'U'
@@ -443,24 +492,23 @@ class Solver:
     self.bs= []
     self.x= []    
     
-  def setDebug(self, flag):
-    if flag == True:
+  def initDebug(self):
+    if self.debug == True:
       self.As = np.zeros((self.NumGlobalElements, self.NumGlobalElements), dtype = 'double')
       self.bs = np.zeros(self.NumGlobalElements)
-    self.debug = flag
-
-  # The field transconductance matrix GF is in nine sections:
-  #   
-  #     top left corner           top edge           top right corner
-  #     left edge                 body               right edge
-  #     bottom right corner       bottom edge        bottom right corner
-  #
-    
-  # A is the problem matrix
-  # Modified nodal analysis formulation is from:
-  # http://www.swarthmore.edu/NatSci/echeeve1/Ref/mna/MNA2.html
 
   def loadMatrix(self, lyr, mesh, matls):
+    """
+    The field transconductance matrix GF is in nine sections:
+      
+        top left corner      |     top edge      |     top right corner
+        left edge            |     body          |     right edge
+        bottom right corner  |     bottom edge   |     bottom right corner
+    
+    A is the problem matrix
+    Modified nodal analysis formulation is from:
+    http://www.swarthmore.edu/NatSci/echeeve1/Ref/mna/MNA2.html
+    """
     self.isoIdx = mesh.nodeGFcount
     print "Starting iso nodes at ", self.isoIdx
     self.loadMatrixBody(lyr, mesh, matls)
@@ -473,10 +521,13 @@ class Solver:
     self.loadMatrixBottomRightCorner(lyr, mesh, matls)
     self.loadMatrixBottomLeftCorner(lyr, mesh, matls)
     self.loadMatrixHeatSources(lyr, mesh)
-    # b is the RHS, which are current sources for injected heat and voltage sources for 
-    #   dirichlet boundary conditions.
+
 
   def loadMatrixHeatSources(self, lyr, mesh):
+    """
+    b is the RHS, which are current sources for injected heat and voltage sources for 
+    dirichlet boundary conditions.
+    """
     # Add the injected heat sources.
     for x in range(0, mesh.width):
       for y in range(0, mesh.height):
@@ -485,7 +536,7 @@ class Solver:
         if self.debug == True:
           self.bs[nodeThis]= mesh.field[x, y, lyr.heat]
         if self.spice == True:
-          if (mesh.field[x, y, lyr.heat] > 0.0):
+          if (mesh.field[x, y, lyr.heat] != 0.0):
             thisSpiceNode=   "N" + str(x) + self.s + str(y)
             thisHeatSource=   "I" + thisSpiceNode
             thisHeat= -mesh.field[x, y, lyr.heat]
@@ -506,26 +557,28 @@ class Solver:
         nodeUpResis=    mesh.field[x,   y-1, lyr.resis]
         nodeLeftResis=  mesh.field[x-1, y,   lyr.resis]
         nodeDownResis=  mesh.field[x,   y+1, lyr.resis]
+        
         GRight= 2.0/(nodeResis + nodeRightResis)
         GUp=    2.0/(nodeResis + nodeUpResis)
         GLeft=  2.0/(nodeResis + nodeLeftResis)
-        GDown=  2.0/(nodeResis + nodeDownResis)
+        GDown=  2.0/(nodeResis + nodeDownResis)        
         GNode= GRight + GUp + GLeft + GDown + self.GDamping
         self.BodyNodeCount += 1
         if (mesh.ifield[x, y, lyr.isoflag] == 1):
           if self.debug == True:
             print "Setting boundaryNode body", nodeThis, " at ",x,",",y,", to temp", mesh.field[x, y, lyr.isodeg]
           GNode = self.addIsoNode(lyr, mesh, matls, nodeThis, x, y, GNode)
-
-        self.A[nodeThis, nodeThis]= GNode
-        self.A[nodeThis, nodeRight]= -GRight
-        self.A[nodeRight, nodeThis]= -GRight
-        self.A[nodeThis, nodeUp]= -GUp
-        self.A[nodeUp, nodeThis]= -GUp
-        self.A[nodeThis, nodeLeft]= -GLeft
-        self.A[nodeLeft, nodeThis]= -GLeft
-        self.A[nodeThis, nodeDown]= -GDown
-        self.A[nodeDown, nodeThis]= -GDown
+        
+        if self.aztec == True:
+          self.A[nodeThis, nodeThis]= GNode
+          self.A[nodeThis, nodeRight]= -GRight
+          self.A[nodeRight, nodeThis]= -GRight
+          self.A[nodeThis, nodeUp]= -GUp
+          self.A[nodeUp, nodeThis]= -GUp
+          self.A[nodeThis, nodeLeft]= -GLeft
+          self.A[nodeLeft, nodeThis]= -GLeft
+          self.A[nodeThis, nodeDown]= -GDown
+          self.A[nodeDown, nodeThis]= -GDown
         if self.debug == True:
           self.As[nodeThis, nodeThis]= GNode
           self.As[nodeThis, nodeRight]= -GRight
@@ -931,11 +984,36 @@ class Solver:
     self.isoIdx = self.isoIdx + 1
     self.BoundaryNodeCount += 1
     return GNode
+            
+  def nonzeroMostCommonCount(self):
+    """
+    Find the most common number of nonzero elements in the A matrix.
+    Loading this into the Trilinos solver speeds it up.
+    """
+    from collections import Counter 
+    rowCountHist = Counter()    
+    mat= self.As
+    rowCount, colCount= mat.shape
+    rowIndex= 0
+    for row in range(0, rowCount-1): 
+      row = np.array(self.As[row])
+      nonzero = np.count_nonzero(row)
+      rowCountHist[nonzero] += 1
+      # print "Nonzero elts in row " + str(rowIndex) + " = " + str(nonzero)
+      rowIndex += 1
+    mostCommon= rowCountHist.most_common(1)
+    mostCommonValue= mostCommon[0][0]
+#   print str(rowCountHist)
+#   print str(mostCommonValue)
+    return mostCommonValue
 
-  def solveMatrix(self, lyr, mesh, iterations):
-
-    # Debugging output
+  def solveMatrix(self, iterations):
+    """
+    Use Trilinos to solve Ax=b
+    """
     # x are the unknowns to be solved.
+    # A is the sparse matrix describing the thermal matrix
+    # b has the sources for heat and boundary conditions
     self.x = Epetra.Vector(self.Map)
     self.A.FillComplete()
     solver = AztecOO.AztecOO(self.A, self.x, self.b)
@@ -950,29 +1028,29 @@ class Solver:
   
     # synchronize processors
     self.Comm.Barrier()
-    if self.Comm.MyPID() == 0: print "End Result: TEST PASSED"
+    if self.Comm.MyPID() == 0: 
+      print "End Result: TEST PASSED"
 
-    self.loadSolutionIntoMesh(mesh, lyr)
-    self.checkBoundaryConditions(mesh, lyr)
-
-  def loadSolutionIntoMesh(self, mesh, lyr):
-    # Load the solution back into the mesh
+  def loadSolutionIntoMesh(self, lyr, mesh):
+    """
+    loadSolutionIntoMesh(Solver self, Layers lyr, Mesh mesh)
+    Load the solution back into a layer on the mesh
+    """
     for x in range(0, mesh.width):
       for y in range(0, mesh.height):
         nodeThis= mesh.getNodeAtXY(x, y)
         mesh.field[x, y, lyr.deg] = self.x[nodeThis]
+        
     #   print "Temp x y t ", x, y, self.x[nodeThis]
 
-  def checkBoundaryConditions(self, mesh, lyr):
-    # Check boundary conditions
-    temperatureStartNode= 0
-    temperatureEndNode= mesh.solveTemperatureNodeCount()
-    dirichletStartNode= temperatureEndNode + mesh.nodeDcount
-    dirichletEndNode= dirichletStartNode + mesh.boundaryDirichletNodeCount(lyr)
-    print "deg Start Node= ", temperatureStartNode
-    print "deg End Node= ", temperatureEndNode
-    print "dirichlet Start Node= ", dirichletStartNode
-    print "dirichlet End Node= ", dirichletEndNode
+  def checkEnergyBalance(self, lyr, mesh):
+    """
+    checkEnergyBalance(Solver self, Layers lyr, Mesh mesh)
+    Compare the power input of the simulation to the power output.
+    The power input is from the current sources and the 
+    power output is into the boundary conditions.
+    """
+    temperatureStartNode, temperatureEndNode, dirichletStartNode, dirichletEndNode = self.getNodeCounts(mesh, lyr)   
     powerIn = 0
     powerOut = 0
     for n in range(temperatureStartNode, temperatureEndNode):
@@ -982,31 +1060,61 @@ class Solver:
     print "Power In = ", powerIn
     print "Power Out = ", powerOut
 
+  def getNodeCounts(self, mesh, lyr):
+    """
+    getNodeCounts(Solver self, Mesh mesh, Layers lyr)
+    Finds indexes of regions within the Solver A matrix corresponding to different parts of the problem description.
+    Return values:
+    temperatureStartNode - first node number corresponding to nodes added by problem description
+    temperatureEndNode - last node number corresponding to nodes added by problem description
+    dirichletStartNode - first node number corresponding to extra nodes added due to Dirichlet boundary conditions
+    dirichletEndNode - last node number corresponding to extra nodes added due to Dirichlet boundary conditions    
+    """
+    temperatureStartNode= 0
+    temperatureEndNode= mesh.solveTemperatureNodeCount()
+    dirichletStartNode= temperatureEndNode + mesh.nodeDcount
+    dirichletEndNode= dirichletStartNode + mesh.boundaryDirichletNodeCount(lyr)
+    if self.debug == True:
+      print "deg Start Node= ", temperatureStartNode
+      print "deg End Node= ", temperatureEndNode
+      print "dirichlet Start Node= ", dirichletStartNode
+      print "dirichlet End Node= ", dirichletEndNode
+    return temperatureStartNode, temperatureEndNode, dirichletStartNode, dirichletEndNode
+
   def totalNodeCount(self):
     totalNodeCount = self.BodyNodeCount + self.TopEdgeNodeCount + self.RightEdgeNodeCount + self.BottomEdgeNodeCount + self.LeftEdgeNodeCount + self.TopLeftCornerNodeCount + self.TopRightCornerNodeCount + self.BottomRightCornerNodeCount + self.BottomLeftCornerNodeCount + self.BoundaryNodeCount
     return totalNodeCount
   
 class Spice:
-  def __init__(self, solver):
-    self.solver= solver
+  """
+  Run xyce based on an input spice deck, a load the output into a mesh.
+  """
+  def __init__(self):
     self.simbasename= 'therm'
     self.ckiname= self.simbasename + '.cki'
     self.ascname= self.simbasename + '.asc'
     self.txtname= self.simbasename + '.txt'
     self.sampleTime = 0.1
     
-  def createSpiceNetlist(self):
-    """Method to write a spice deck based on what was loaded by the solver"""
+  def createSpiceNetlist(self, deck):
+    """
+    createSpiceNetlist(Spice self)
+    Write a wrapper around the spice deck that was created by the
+    Solver.
+    """
     f= open(self.simbasename + '.cki', 'w')
     f.write("* Thermal network\n")
-    f.write(self.solver.deck)
+    f.write(deck)
     f.write(".tran .1 " + str(self.sampleTime) + "\n")
     f.write(".print tran\n")
     f.write(".end\n")
     f.close()
       
   def runSpiceNetlist(self):
-    """Method to execute xyce"""
+    """
+    runSpiceNetlist(Spice self)
+    Execute Xyce in a subprocess
+    """
     xycePath = "/usr/local/Xyce-Release-6.1.0-OPENSOURCE/bin"
     xyceCmd = [xycePath + "/runxyce", self.ckiname, "-a", "-r", self.ascname, "-l", self.txtname]
     thisEnv = os.environ.copy()
@@ -1015,7 +1123,12 @@ class Spice:
     return proc
     
   def readSpiceResults(self, lyr, mesh):
-    """Method to read results from spice simulation"""
+    """
+    readSpiceResults(Spice self, Layers lyr, Mesh mesh)
+    Read results from spice simulation ASCII raw file output.
+    Load the results back into the mesh for display.
+    This requires looking up the mesh coordinates based on the spice net name.
+    """
     f= open(self.simbasename + '.asc', 'r')
     # Header
     for line in f:
@@ -1048,7 +1161,6 @@ class Spice:
         if (line == '\n'):
           break
         if (idx < len(mesh.spiceNodeX)):
-          # TODO: Add to mesh layer here for visualization.
           print str(idx) + ' ' + voltage + ' ' + str(mesh.spiceNodeX[idx]) + ' ' + str(mesh.spiceNodeY[idx])
           mesh.field[mesh.spiceNodeX[idx], mesh.spiceNodeY[idx], lyr.spicedeg] = voltage
           idx += 1
@@ -1066,32 +1178,91 @@ class Spice:
         inTimePoint = False
 
     f.close()
+    
+# This can scale by using a PNG input instead of code
+def defineproblem(lyr, mesh, matls):
+  """
+  defineproblem(Layer lyr, Mesh mesh, Matls matls)
+  Create a sample test problem for thermal analysis that can scale
+  to a wide variety of sizes.
+  It initializes the mesh based on fractions of the size of the mesh.
+  The conductivities in the problem are based on the material properties
+  in the matls object.
+  """
+
+  mesh.field[:, :, lyr.heat]  = 0.0
+  mesh.field[:, :, lyr.resis] = matls.copperCond
+  mesh.field[:, :, lyr.deg]   = 20
+  mesh.field[:, :, lyr.flux]  = 0.0
+  mesh.field[:, :, lyr.isodeg] = 0.0
+  mesh.ifield[:, :, lyr.isoflag] = 0
+  mesh.ifield[:, :, lyr.isonode] = 0
+  
+  # Heat source
+  hsx= 0.5
+  hsy= 0.5
+  hswidth= 0.25
+  hsheight= 0.25
+  heat= 1.0
+  srcl= round(mesh.width*(hsx-hswidth*0.5))
+  srcr= round(mesh.width*(hsx+hswidth*0.5))
+  srct= round(mesh.height*(hsy-hsheight*0.5))
+  srcb= round(mesh.height*(hsy+hsheight*0.5))
+  numHeatCells= (srcr - srcl)*(srcb-srct)
+  heatPerCell= heat/numHeatCells
+  print "Heat per cell = ", heatPerCell
+  mesh.field[srcl:srcr, srct:srcb, lyr.heat] = heatPerCell
+  mesh.field[srcl:srcr, srct:srcb, lyr.resis] = 1.0
+  
+  # Boundary conditions
+  mesh.field[0, 0:mesh.height, lyr.isodeg] = 25.0
+  mesh.field[mesh.width-1, 0:mesh.height, lyr.isodeg] = 25.0
+  mesh.field[0:mesh.width, 0, lyr.isodeg] = 25.0
+  mesh.field[0:mesh.width, mesh.height-1, lyr.isodeg] = 25.0
+  mesh.ifield[0, 0:mesh.height, lyr.isoflag] = 1
+  mesh.ifield[mesh.width-1, 0:mesh.height, lyr.isoflag] = 1
+  mesh.ifield[0:mesh.width, 0, lyr.isoflag] = 1
+  mesh.ifield[0:mesh.width, mesh.height-1, lyr.isoflag] = 1
+  
+  # Thermal conductors
+  condwidth= 0.05
+  cond1l= round(mesh.width*hsx - mesh.width*condwidth*0.5)
+  cond1r= round(mesh.width*hsx + mesh.width*condwidth*0.5)
+  cond1t= round(mesh.height*hsy - mesh.height*condwidth*0.5)
+  cond1b= round(mesh.height*hsy + mesh.height*condwidth*0.5)
+  mesh.field[0:mesh.width, cond1t:cond1b, lyr.resis] = matls.copperCond
+  mesh.field[cond1l:cond1r, 0:mesh.height, lyr.resis] = matls.copperCond    
 
 def Main():
   lyr = Layers()
-  monitor = Monitors()
-  #  Minimal problem to confirm operation:
+  # monitor = Monitors()
+  # Minimal problem to confirm operation:
   # mesh = Mesh(5, 5, lyr)
-  showPlots= True
-  mesh = Mesh(50, 25, lyr)
+  showPlots= False
+
+  mesh = Mesh(100, 100, lyr)
   matls = Matls()
 
   defineproblem(lyr, mesh, matls)
   mesh.mapMeshToSolutionMatrix(lyr)
   
   solv = Solver(lyr, mesh)
-  solv.setDebug(False)
+  solv.debug= False
+  solv.initDebug()
+  solv.spice= False
   solv.loadMatrix(lyr, mesh, matls)
   
-  useSpice= True
-  if (useSpice == True):
-    spice= Spice(solv)
-    spice.createSpiceNetlist()
+  if (solv.spice == True):
+    spice= Spice()
+    spice.createSpiceNetlist(solv.deck)
     proc= spice.runSpiceNetlist()
     proc.wait()
     spice.readSpiceResults(lyr, mesh)
     
-  solv.solveMatrix(lyr, mesh, 400000)
+  if (solv.aztec == True):
+    solv.solveMatrix(400000)
+    solv.loadSolutionIntoMesh(lyr, mesh)
+    solv.checkEnergyBalance(lyr, mesh)  
   
   if (solv.debug == True):
     webpage = Webpage(solv, lyr, mesh)
@@ -1100,12 +1271,19 @@ def Main():
   if (showPlots == True):
     plots= interactivePlot(lyr, mesh)
     plots.plotTemperature()
-    plots.plotSpicedeg()
-    plots.plotLayerDifference(lyr.spicedeg, lyr.deg)
+    if (solv.spice == True):
+      plots.plotSpicedeg()
+      plots.plotLayerDifference(lyr.spicedeg, lyr.deg)
     plots.show()
 
+showProfile= True
+if showProfile == True:
+  cProfile.run('Main()', 'restats')
+  p = pstats.Stats('restats')
+  p.sort_stats('cumulative').print_stats(20)
+else:
+  Main()
 
-Main()
 
 def gsitersolve(lyr, mesh, monitor):
   finished = 0
@@ -1119,41 +1297,6 @@ def gsitersolve(lyr, mesh, monitor):
     if ((iter > 10) and (abs(powerbalance) < .005)):
       finished = 1
     iter = iter + 1
-    
-    
-#
-# A matrix is in sections:
-#   
-#       |  G   B  |
-#   A = |  C   D  |
-#      G transconductance matrix
-#      B sources, which in this case are just 1s
-#      C transpose of B
-#      D zeroes
-#   G is in two sections, which are the upper left GF (for field) and GB (for boundary)
-#   The analysis is of the form  Ax = b
-#   For rows in b corresponding to G,  
-#      b is the known value of the current (constant power in thermal circuits) sources
-#   For rows in b corresponding to D, (constant temperature boundary conditions) 
-#      b is the known value of temperature at the boundary.
-#   The number of rows in D is self.nodeDcount
-#   The number of rows in G is self.nodeGcount
-#   The number of rows in GF is self.nodeGFcount
-#   The number of rows in GB is self.nodeGBcount
-#   The total number of rows in A is self.nodeCount
-#
-#   The solution to the matrix is the vector x
-#   For rows in x corresponding to G, these are voltages (temperature)
-#   For rows in x corresponding to D, these are currents (power flow) in the boundary condition.
-#
-#   For energy balance in steady state, the current into the constant-temperature boundary condition 
-#   must equal the current from the constant-power thermal sources.
-# 
-#   The index of the last nodes in the G submatrix for the field plus one is the number
-#   of nodes in the field GF. Add the boundary nodes GB to G.
-#
-#   Also count the number of boundary sources, which is the size of the D matrix. 
-#       
     
 # Times without printing much.
 # Printing overhead is probably about 10% in this case.
