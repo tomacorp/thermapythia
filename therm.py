@@ -15,7 +15,7 @@ import pstats
 import cProfile
 import matplotlib.pyplot as plt
 import numpy as np
-from PyTrilinos import Epetra, AztecOO
+from PyTrilinos import Epetra, AztecOO, ML
 
 class Layers:
   def __init__(self):
@@ -473,7 +473,7 @@ class Solver:
     self.spice             = False
     self.aztec             = True
     self.deck              = ''
-    self.GDamping          = 1e-12
+    self.GDamping          = 0   # Various values such as 1e-12, 1e-10, and -1e-10 have worked or not!
     self.s                 = 'U'
     self.BodyNodeCount              = 0
     self.TopEdgeNodeCount           = 0
@@ -1017,7 +1017,30 @@ class Solver:
     self.x = Epetra.Vector(self.Map)
     self.A.FillComplete()
     solver = AztecOO.AztecOO(self.A, self.x, self.b)
+    # solver.SetAztecOption(AztecOO.AZ_solver, AztecOO.AZ_cg)
     solver.SetAztecOption(AztecOO.AZ_solver, AztecOO.AZ_cg_condnum)
+    
+#    MLList = {
+#         "max levels" : 3,
+#         "output" : 10,
+#         "smoother: type" : "symmetric Gauss-Seidel", 
+#         "aggregation: type" : "Uncoupled"
+#    };
+#    # Then, we create the preconditioner and compute it,
+#    Prec = ML.MultiLevelPreconditioner(self.A, False)
+#    Prec.SetParameterList(MLList)
+#    Prec.ComputePreconditioner()
+    
+    #   # Finally, we set up the solver, and specifies to use Prec as preconditioner:
+    
+#    solver = AztecOO.AztecOO(self.A, self.x, self.b)
+#    solver.SetPrecOperator(Prec)    
+    
+    
+    
+    
+    
+    
     # This loads x with the solution to the problem
     solver.Iterate(iterations, 1e-5)
 
@@ -1087,7 +1110,7 @@ class Solver:
   
 class Spice:
   """
-  Run xyce based on an input spice deck, a load the output into a mesh.
+  Run xyce based on an input spice deck, and load the output from the simulator back into the problem mesh.
   """
   def __init__(self):
     self.simbasename= 'therm'
@@ -1238,9 +1261,9 @@ def Main():
   # monitor = Monitors()
   # Minimal problem to confirm operation:
   # mesh = Mesh(5, 5, lyr)
-  showPlots= False
+  showPlots= True
 
-  mesh = Mesh(100, 100, lyr)
+  mesh = Mesh(20, 20, lyr)
   matls = Matls()
 
   defineproblem(lyr, mesh, matls)

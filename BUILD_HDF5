@@ -1,0 +1,93 @@
+#!/bin/sh
+# Tom Anderson
+# Fri Jul 18 08:13:16 PDT 2014
+# Fri Jul 25 00:56:29 PDT 2014
+# See also:
+# https://software.sandia.gov/pipermail/trilinos-users/
+#
+# First built openmpi, pcre and swig
+# Later rebuilt after adding hdf5
+
+# complains maximum swig version is 2.0.8
+# Fixed it by installing 2.0.8
+
+PATH=/Users/toma/python278i/bin
+PATH=$PATH:/Applications/CMake.app/Contents/bin
+PATH=$PATH:/usr/bin
+PATH=$PATH:/bin
+PATH=$PATH:/usr/local/bin
+PATH=$PATH:/opt/X11/bin
+PATH=$PATH:/usr/sbin
+PATH=$PATH:/sbin
+PATH=$PATH:/Users/toma/perl/bin
+PATH=$PATH:/Users/toma/tools/bin
+PATH=$PATH:/Users/toma/bin
+PATH=$PATH:/Users/toma/tools/trilinos
+# PATH=/Users/toma/tools/amazon/ec2-api-tools-1.3-24159/bin:$PATH
+export PATH
+
+export WORKDIR=/Users/toma/tools
+
+export CC=clang
+export CXX=clang
+export FFLAGS=-ff2c
+export BUILD=$WORKDIR/trilinos-build
+export SOURCE=$WORKDIR/trilinos-11.8.1-Source
+export DIST=/Users/toma/Downloads/trilinos-11.8.1-Source.tar.gz
+
+# HDF5 build
+
+# According to http://trilinos.org/packages/epetraext/
+# The requirement is for HDF5 version 1.6.5
+# This version is buried under:
+# http://www.hdfgroup.org/ftp/HDF5/releases/
+# at:
+# http://www.hdfgroup.org/ftp/HDF5/releases/hdf5-1.6/
+# 
+cd /Users/toma/tools/hdf5
+rm -rf hdf5-1.8.13
+tar -zxf hdf5-1.8.13.tar.gz
+cd hdf5-1.8.13
+./configure --prefix=/usr/local
+make
+# sudo make install
+
+# Need 1.6.5
+cd /Users/toma/tools/hdf5
+cp /Users/toma/Downloads/hdf5-1.6.5.tar.gz .
+tar -zxf hdf5-1.8.13.tar.gz
+cd /Users/toma/tools/hdf5/hdf5-1.6.5
+./configure --prefix=/Users/toma/tools/hdf5
+make
+make install
+
+# Trilinos build
+# rm -rf $SOURCE
+cd /Users/toma/tools
+# tar -zxf $DIST
+
+rm -rf $BUILD
+mkdir $BUILD
+cd $BUILD
+
+cmake \
+-DCMAKE_C_COMPILER=/usr/bin/clang \
+-DCMAKE_CXX_COMPILER=/usr/bin/clang++ \
+-DTrilinos_ENABLE_Fortran:BOOL=OFF \
+-DTrilinos_ENABLE_ALL_PACKAGES:BOOL=ON \
+-DTPL_ENABLE_MPI:BOOL=OFF \
+-DTrilinos_ENABLE_PyTrilinos:BOOL=ON \
+-DBUILD_SHARED_LIBS:BOOL=ON \
+-DCMAKE_INSTALL_PATH=$WORKDIR/trilinos \
+$SOURCE
+
+make
+# sudo make install
+
+# HDF5 build instructions from https://github.com/CamelliaDPG/Camellia
+
+# spice raw file to HDF5:
+# http://www.h-renrew.de/h/python_spice/spicedata.html
+# http://www.hdfgroup.org/tools5app.html
+
+
