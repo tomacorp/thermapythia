@@ -15,7 +15,7 @@ import pstats
 import cProfile
 import matplotlib.pyplot as plt
 import numpy as np
-from PyTrilinos import Epetra, AztecOO, ML
+from PyTrilinos import Epetra, AztecOO, ML, Anasazi, Amesos
 
 class Layers:
   def __init__(self):
@@ -65,7 +65,7 @@ class Mesh:
   
   """
 
-  def __init__(self, w, h, lyr):
+  def __init__(self, w, h, lyr, matls):
     self.width = w
     self.height = h
     self.field = np.zeros((self.width, self.height, lyr.numdoublelayers), dtype = 'double')
@@ -87,6 +87,13 @@ class Mesh:
     # a layer in the mesh. Nodes start at 1. The first variable is time.
     self.spiceNodeX = []
     self.spiceNodeY = []
+    self.field[:, :, lyr.heat]  = 0.0
+    self.field[:, :, lyr.resis] = matls.copperCond
+    self.field[:, :, lyr.deg]   = 20
+    self.field[:, :, lyr.flux]  = 0.0
+    self.field[:, :, lyr.isodeg] = 25.0
+    self.ifield[:, :, lyr.isoflag] = 0
+    self.ifield[:, :, lyr.isonode] = 0    
 
   def solveTemperatureNodeCount(self):
     """ 
@@ -179,12 +186,10 @@ class Mesh:
 
 class Matls:
   def __init__(self):
-    self.fr4Cond    = 1
+    self.fr4Cond    = 0
     self.copperCond = 10
-    self.boundCond = 100
-
-
-
+    self.boundCond = 20
+    
 class interactivePlot:
   def __init__(self, lyr, mesh):
     self.lyr     = lyr
@@ -460,6 +465,12 @@ class Solver:
     by the calling processor; `MyGlobalElements' is the global ID of locally 
     hosted rows.
     """
+    self.debug             = False
+    self.spice             = False
+    self.aztec             = False
+    self.amesos            = True
+    self.eigen             = False   
+    
     mostCommonNonzeroEntriesPerRow = 5
     self.Comm              = Epetra.PyComm()
     self.NumGlobalElements = mesh.nodeCount
@@ -467,13 +478,13 @@ class Solver:
     self.A                 = Epetra.CrsMatrix(Epetra.Copy, self.Map, mostCommonNonzeroEntriesPerRow)
     self.NumMyElements     = self.Map.NumMyElements()
     self.MyGlobalElements  = self.Map.MyGlobalElements()
+    
     self.b                 = Epetra.Vector(self.Map)
+      
     self.isoIdx            = 0
-    self.debug             = False
-    self.spice             = False
-    self.aztec             = True
+
     self.deck              = ''
-    self.GDamping          = 0   # Various values such as 1e-12, 1e-10, and -1e-10 have worked or not!
+    self.GDamping          = 0.0   # Various values such as 1e-12, 1e-10, and -1e-10 have worked or not!
     self.s                 = 'U'
     self.BodyNodeCount              = 0
     self.TopEdgeNodeCount           = 0
@@ -503,7 +514,7 @@ class Solver:
       
         top left corner      |     top edge      |     top right corner
         left edge            |     body          |     right edge
-        bottom right corner  |     bottom edge   |     bottom right corner
+        bottom left corner   |     bottom edge   |     bottom right corner
     
     A is the problem matrix
     Modified nodal analysis formulation is from:
@@ -511,17 +522,17 @@ class Solver:
     """
     self.isoIdx = mesh.nodeGFcount
     print "Starting iso nodes at ", self.isoIdx
-    self.loadMatrixBody(lyr, mesh, matls)
-    self.loadMatrixTopEdge(lyr, mesh, matls)
-    self.loadMatrixRightEdge(lyr, mesh, matls)
-    self.loadMatrixBottomEdge(lyr, mesh, matls)
-    self.loadMatrixLeftEdge(lyr, mesh, matls)
-    self.loadMatrixTopLeftCorner(lyr, mesh, matls)
-    self.loadMatrixTopRightCorner(lyr, mesh, matls)
-    self.loadMatrixBottomRightCorner(lyr, mesh, matls)
+    
     self.loadMatrixBottomLeftCorner(lyr, mesh, matls)
+    self.loadMatrixBottomRightCorner(lyr, mesh, matls)
+    self.loadMatrixBottomEdge(lyr, mesh, matls)
+    self.loadMatrixTopRightCorner(lyr, mesh, matls)
+    self.loadMatrixTopLeftCorner(lyr, mesh, matls) 
+    self.loadMatrixRightEdge(lyr, mesh, matls)
+    self.loadMatrixTopEdge(lyr, mesh, matls)
+    self.loadMatrixLeftEdge(lyr, mesh, matls)
+    self.loadMatrixBody(lyr, mesh, matls)  
     self.loadMatrixHeatSources(lyr, mesh)
-
 
   def loadMatrixHeatSources(self, lyr, mesh):
     """
@@ -542,43 +553,37 @@ class Solver:
             thisHeat= -mesh.field[x, y, lyr.heat]
             self.deck += thisHeatSource + " " + thisSpiceNode + " 0 DC " + str(thisHeat) + "\n"
 
+  # This is the bottleneck
+  # RAM requirement is about 1kb/mesh element.
   def loadMatrixBody(self, lyr, mesh, matls):
+    if (mesh.height < 3) or (mesh.width < 3):
+      return
     GBoundary= matls.boundCond
     for x in range(1, mesh.width-1):
       for y in range(1, mesh.height-1):
-        nodeThis  = mesh.getNodeAtXY(x,   y)
-        nodeRight = mesh.getNodeAtXY(x+1, y)
-        nodeUp    = mesh.getNodeAtXY(x,   y-1)
-        nodeLeft  = mesh.getNodeAtXY(x-1, y)
-        nodeDown  = mesh.getNodeAtXY(x,   y+1)
-
-        nodeResis=      mesh.field[x,   y,   lyr.resis]
-        nodeRightResis= mesh.field[x+1, y,   lyr.resis]
-        nodeUpResis=    mesh.field[x,   y-1, lyr.resis]
-        nodeLeftResis=  mesh.field[x-1, y,   lyr.resis]
-        nodeDownResis=  mesh.field[x,   y+1, lyr.resis]
         
-        GRight= 2.0/(nodeResis + nodeRightResis)
-        GUp=    2.0/(nodeResis + nodeUpResis)
-        GLeft=  2.0/(nodeResis + nodeLeftResis)
-        GDown=  2.0/(nodeResis + nodeDownResis)        
-        GNode= GRight + GUp + GLeft + GDown + self.GDamping
+        # 2.067s
+        nodeThis, nodeRight, nodeUp, nodeLeft, nodeDown = \
+          self.getNeighborNodeNumbers(y, x, mesh)
+        
+        # 0.747s
+        nodeResis, nodeRightResis, nodeUpResis, nodeLeftResis, nodeDownResis = \
+        self.rnodeCalc(y, x, mesh, lyr)
+        
+        # 1.022s
+        GRight, GUp, GLeft, GDown, GNode = \
+        self.gnodeCalc(nodeResis, nodeRightResis, nodeUpResis, nodeLeftResis, nodeDownResis)
+        
         self.BodyNodeCount += 1
         if (mesh.ifield[x, y, lyr.isoflag] == 1):
           if self.debug == True:
             print "Setting boundaryNode body", nodeThis, " at ",x,",",y,", to temp", mesh.field[x, y, lyr.isodeg]
           GNode = self.addIsoNode(lyr, mesh, matls, nodeThis, x, y, GNode)
         
-        if self.aztec == True:
-          self.A[nodeThis, nodeThis]= GNode
-          self.A[nodeThis, nodeRight]= -GRight
-          self.A[nodeRight, nodeThis]= -GRight
-          self.A[nodeThis, nodeUp]= -GUp
-          self.A[nodeUp, nodeThis]= -GUp
-          self.A[nodeThis, nodeLeft]= -GLeft
-          self.A[nodeLeft, nodeThis]= -GLeft
-          self.A[nodeThis, nodeDown]= -GDown
-          self.A[nodeDown, nodeThis]= -GDown
+        if (self.aztec == True) or (self.amesos == True):
+          # 6.074s
+          self.loadBodyA(nodeThis, GNode, GRight, nodeRight, GUp, nodeUp, nodeLeft, GLeft, GDown, nodeDown)
+          
         if self.debug == True:
           self.As[nodeThis, nodeThis]= GNode
           self.As[nodeThis, nodeRight]= -GRight
@@ -600,7 +605,44 @@ class Solver:
           self.deck += "RFR" + thisSpiceNode + " " + thisSpiceNode + " " + spiceNodeRight + " " + str(RRight) + "\n"
           self.deck += "RFD" + thisSpiceNode + " " + thisSpiceNode + " " + spiceNodeDown + " " + str(RDown) + "\n"
 
+  def loadBodyA(self, nodeThis, GNode, GRight, nodeRight, GUp, nodeUp, nodeLeft, GLeft, GDown, nodeDown):
+    self.A[nodeThis, nodeThis]= GNode
+    self.A[nodeThis, nodeRight]= -GRight
+    self.A[nodeRight, nodeThis]= -GRight
+    self.A[nodeThis, nodeUp]= -GUp
+    self.A[nodeUp, nodeThis]= -GUp
+    self.A[nodeThis, nodeLeft]= -GLeft
+    self.A[nodeLeft, nodeThis]= -GLeft
+    self.A[nodeThis, nodeDown]= -GDown
+    self.A[nodeDown, nodeThis]= -GDown
+
+  def getNeighborNodeNumbers(self, y, x, mesh):
+    nodeThis  = mesh.getNodeAtXY(x,   y)
+    nodeRight = mesh.getNodeAtXY(x+1, y)
+    nodeUp    = mesh.getNodeAtXY(x,   y-1)
+    nodeLeft  = mesh.getNodeAtXY(x-1, y)
+    nodeDown  = mesh.getNodeAtXY(x,   y+1)
+    return nodeThis, nodeRight, nodeUp, nodeLeft, nodeDown
+
+  def rnodeCalc(self, y, x, mesh, lyr):
+    nodeResis=      mesh.field[x,   y,   lyr.resis]
+    nodeRightResis= mesh.field[x+1, y,   lyr.resis]
+    nodeUpResis=    mesh.field[x,   y-1, lyr.resis]
+    nodeLeftResis=  mesh.field[x-1, y,   lyr.resis]
+    nodeDownResis=  mesh.field[x,   y+1, lyr.resis]
+    return nodeResis, nodeRightResis, nodeUpResis, nodeLeftResis, nodeDownResis
+
+  def gnodeCalc(self, nodeResis, nodeRightResis, nodeUpResis, nodeLeftResis, nodeDownResis):
+    GRight= 2.0/(nodeResis + nodeRightResis)
+    GUp=    2.0/(nodeResis + nodeUpResis)
+    GLeft=  2.0/(nodeResis + nodeLeftResis)
+    GDown=  2.0/(nodeResis + nodeDownResis)        
+    GNode= GRight + GUp + GLeft + GDown + self.GDamping
+    return GRight, GUp, GLeft, GDown, GNode
+
   def loadMatrixTopEdge(self, lyr, mesh, matls):
+    if (mesh.width < 3) or (mesh.height < 2):
+      return
     GBoundary= matls.boundCond
     for x in range(1, mesh.width-1):
       y = 0
@@ -651,6 +693,8 @@ class Solver:
         self.deck += "RTED" + thisSpiceNode + " " + thisSpiceNode + " " + spiceNodeDown + " " + str(RDown) + "\n"
 
   def loadMatrixRightEdge(self, lyr, mesh, matls):
+    if (mesh.width < 2) or (mesh.height < 3):
+      return
     GBoundary= matls.boundCond
     for y in range(1, mesh.height-1):
       x= mesh.width-1
@@ -697,6 +741,8 @@ class Solver:
         self.deck += "RRED" + thisSpiceNode + " " + thisSpiceNode + " " + spiceNodeDown + " " + str(RDown) + "\n"
     
   def loadMatrixBottomEdge(self, lyr, mesh, matls):
+    if (mesh.width < 3) or (mesh.height < 2):
+      return
     GBoundary= matls.boundCond
     for x in range(1, mesh.width-1):
       y= mesh.height-1
@@ -743,6 +789,8 @@ class Solver:
         self.deck += "RBER" + thisSpiceNode + " " + thisSpiceNode + " " + spiceNodeRight + " " + str(RRight) + "\n"
 
   def loadMatrixLeftEdge(self, lyr, mesh, matls):
+    if (mesh.width < 2) or (mesh.height < 3):
+      return
     GBoundary= matls.boundCond
     for y in range(1, mesh.height-1):
       x= 0
@@ -792,6 +840,8 @@ class Solver:
         self.deck += "RLED" + thisSpiceNode + " " + thisSpiceNode + " " + spiceNodeDown + " " + str(RDown) + "\n"
 
   def loadMatrixTopLeftCorner(self, lyr, mesh, matls):
+    if (mesh.width < 2) or (mesh.height < 2):
+      return
     GBoundary= matls.boundCond
     y = 0
     x = 0
@@ -834,6 +884,8 @@ class Solver:
       self.deck += "RTLCD" + thisSpiceNode + " " + thisSpiceNode + " " + spiceNodeDown + " " + str(RDown) + "\n"
 
   def loadMatrixTopRightCorner(self, lyr, mesh, matls):
+    if ((mesh.width < 2) or (mesh.height < 2)):
+      return
     GBoundary= matls.boundCond
     x= mesh.width-1
     y= 0
@@ -873,6 +925,8 @@ class Solver:
       self.deck += "RTRCD" + thisSpiceNode + " " + thisSpiceNode + " " + spiceNodeDown + " " + str(RDown) + "\n"
 
   def loadMatrixBottomRightCorner(self, lyr, mesh, matls):
+    if (mesh.width < 2) or (mesh.height < 2):
+      return
     GBoundary= matls.boundCond
     x= mesh.width-1
     y= mesh.height-1
@@ -910,6 +964,8 @@ class Solver:
       mesh.spiceNodeYName[thisSpiceNode] = y      
 
   def loadMatrixBottomLeftCorner(self, lyr, mesh, matls):
+    if (mesh.height < 2) or (mesh.width < 2):
+      return
     GBoundary= matls.boundCond
     x= 0
     y= mesh.height-1
@@ -1006,54 +1062,162 @@ class Solver:
 #   print str(rowCountHist)
 #   print str(mostCommonValue)
     return mostCommonValue
-
-  def solveMatrix(self, iterations):
-    """
-    Use Trilinos to solve Ax=b
-    """
+  
+  def solveMatrixAmesos(self):
+    # The Reaper
     # x are the unknowns to be solved.
     # A is the sparse matrix describing the thermal matrix
     # b has the sources for heat and boundary conditions
-    self.x = Epetra.Vector(self.Map)
+    iAmRoot = self.Comm.MyPID() == 0
+        
+    xmulti = Epetra.MultiVector(self.Map, 1, True)
+    bmulti= Epetra.MultiVector(self.Map, 1, True)
+    rowCount= self.A.NumGlobalRows()
+    for row in range(0, rowCount):
+      bmulti[0,row]= self.b[row]
+      # print "row: " + str(row) + " " + str(self.b[row])
+      
+    # print "LHS: " + str(xmulti)
+    # print "RHS: " + str(bmulti)
     self.A.FillComplete()
+    # print "Matrix: " + str(self.A)
+
+    
+    problem= Epetra.LinearProblem(self.A, xmulti, bmulti)
+    # print "Problem: " + str(problem)
+    solver= Amesos.Klu(problem)
+    # print "Solver before solve: " + str(solver)
+    solver.SymbolicFactorization()
+    solver.NumericFactorization()
+    ierr = solver.Solve()
+    # print "Solver after solve: " + str(solver)
+     
+    xarr= Epetra.MultiVector.ExtractCopy(xmulti)
+    xarrf= xarr.flatten()
+    if iAmRoot:    
+      print "Solver return status: " + str(ierr)    
+      # print "xmulti, raw" + str(xmulti)
+      # print "xmulti. flattened" + str(xarrf)
+    
+    self.x = Epetra.Vector(xarrf)
+    # At this point multiply by self.A to see if it matches self.b
+    bCheck= Epetra.MultiVector(self.Map, 1)
+    self.A.Multiply(False, self.x, bCheck)
+    # print "bCheck: " + str(bCheck)
+    # print "x result:" + str(self.x)
+    self.Comm.Barrier()
+
+  def solveMatrixAztecOO(self, iterations):
+    """
+    Solve Ax=b
+    """
+    # x are the unknowns to be solved.
+    # A is the sparse matrix describing the thermal matrix
+    # b has the current sources for heat and Dirichlet boundary conditions
+    iAmRoot = self.Comm.MyPID() == 0
+    
+    self.x = Epetra.Vector(self.Map)
+    
+    try:
+      self.A.FillComplete()     
+    except:
+      print "Oops can't fill self.A with: " + str(self.A)
+      exit
+    
+    # self.A.FillComplete()
     solver = AztecOO.AztecOO(self.A, self.x, self.b)
-    # solver.SetAztecOption(AztecOO.AZ_solver, AztecOO.AZ_cg)
     solver.SetAztecOption(AztecOO.AZ_solver, AztecOO.AZ_cg_condnum)
-    
-#    MLList = {
-#         "max levels" : 3,
-#         "output" : 10,
-#         "smoother: type" : "symmetric Gauss-Seidel", 
-#         "aggregation: type" : "Uncoupled"
-#    };
-#    # Then, we create the preconditioner and compute it,
-#    Prec = ML.MultiLevelPreconditioner(self.A, False)
-#    Prec.SetParameterList(MLList)
-#    Prec.ComputePreconditioner()
-    
-    #   # Finally, we set up the solver, and specifies to use Prec as preconditioner:
-    
-#    solver = AztecOO.AztecOO(self.A, self.x, self.b)
-#    solver.SetPrecOperator(Prec)    
-    
-    
-    
-    
-    
-    
     # This loads x with the solution to the problem
-    solver.Iterate(iterations, 1e-5)
-
+    ierr = solver.Iterate(iterations, 1e-8)
+    
+    if iAmRoot:
+      print "Solver return status: " + str(ierr)
     self.Comm.Barrier()
+      
+  def solveEigen(self): 
+    
+    iAmRoot = self.Comm.MyPID() == 0
+    # Most that worked for 40x40 mesh: nev         = 30
+    nev         = 2
+    blockSize   = nev + 1
+    numBlocks   = 2 * nev
+    maxRestarts = 100000
+    tol         = 1.0e-8
+ 
+    print "Create the eigenproblem"
+    self.A.FillComplete()    
+    myProblem = Anasazi.BasicEigenproblem(self.A, self.b)
+ 
+    print "Inform the eigenproblem that matrix is symmetric"
+    myProblem.setHermitian(True)
+ 
+    print "Set the number of eigenvalues requested"
+    myProblem.setNEV(nev)
+ 
+    print "All done defining problem"
+    if not myProblem.setProblem():
+      print "Anasazi.BasicEigenProblem.setProblem() returned an error"
+      return -1
+ 
+    smallEigenvaluesParameterList = {"Which" : "SM",   # Smallest magnitude
+           "Block Size"            : blockSize,
+           "Num Blocks"            : numBlocks,
+           "Maximum Restarts"      : maxRestarts,
+           "Convergence Tolerance" : tol,
+           "Use Locking"           : True}
+ 
+    smallestEigenvalue= 0.0
+    largestEigenvalue= 0.0
+    # Need to try/catch here:
+    try:
+      smSolverMgr = Anasazi.BlockDavidsonSolMgr(myProblem, smallEigenvaluesParameterList)
+      smSolverMgr.solve()
+      smallestEigenvalue= self.getFirstEigenvalue(myProblem, iAmRoot, nev, tol)
+      if (smallestEigenvalue <= 0.0):
+        print "zero or negative smallest eigenvalue"
+    except:
+      print "Oops no smallest eigenvalue"
+      
+    largeEigenvaluesParameterList = {"Which" : "LM",   # Largest magnitude
+           "Block Size"            : blockSize,
+           "Num Blocks"            : numBlocks,
+           "Maximum Restarts"      : maxRestarts,
+           "Convergence Tolerance" : tol,
+           "Use Locking"           : True}
+ 
+    # Need to try/catch here:
+    try:
+      lmSolverMgr = Anasazi.BlockDavidsonSolMgr(myProblem, largeEigenvaluesParameterList)
+      lmSolverMgr.solve()
+      largestEigenvalue= self.getFirstEigenvalue(myProblem, iAmRoot, nev, tol)
+      if (largestEigenvalue <= 0.0):
+        print "zero or negative largest eigenvalue"      
+    except:
+      print "Oops no largest eigenvalue"
+ 
+    if ((largestEigenvalue != 0.0) & (smallestEigenvalue != 0.0)):
+      print "Largest Eigenvalue: " + str(largestEigenvalue)
+      print "Smallest Eigenvalue: " + str(smallestEigenvalue)
+      condNumber= largestEigenvalue / smallestEigenvalue
+      print "Condition number: " + str(condNumber)
 
-#   for i in self.MyGlobalElements:
-#     print "PE%d: %d %e" % (self.Comm.MyPID(), i, self.x[i])
-  
-    # synchronize processors
-    self.Comm.Barrier()
-    if self.Comm.MyPID() == 0: 
-      print "End Result: TEST PASSED"
-
+  def getFirstEigenvalue(self, myProblem, iAmRoot, nev, tol):
+    # Get the eigenvalues and eigenvectors
+    sol = myProblem.getSolution()
+    evals = sol.Evals()
+    # print "evals: " + str(evals)
+    if (isinstance(evals, np.ndarray)):
+      evecs = sol.Evecs()
+      # print "evecs: " + str(evecs)
+      if (isinstance(evecs, Epetra.MultiVector)):
+        index = sol.index
+        if(isinstance(index, Anasazi.VectorInt)):    
+          # Check the eigensolutions
+          lhs = Epetra.MultiVector(self.Map, sol.numVecs)
+          self.A.Apply(evecs, lhs)
+          return evals[0].real
+    return 0
+    
   def loadSolutionIntoMesh(self, lyr, mesh):
     """
     loadSolutionIntoMesh(Solver self, Layers lyr, Mesh mesh)
@@ -1063,8 +1227,7 @@ class Solver:
       for y in range(0, mesh.height):
         nodeThis= mesh.getNodeAtXY(x, y)
         mesh.field[x, y, lyr.deg] = self.x[nodeThis]
-        
-    #   print "Temp x y t ", x, y, self.x[nodeThis]
+        # print "Temp x y t ", x, y, self.x[nodeThis]
 
   def checkEnergyBalance(self, lyr, mesh):
     """
@@ -1203,30 +1366,23 @@ class Spice:
     f.close()
     
 # This can scale by using a PNG input instead of code
-def defineproblem(lyr, mesh, matls):
+def defineScalableProblem(lyr, matls, x, y):
   """
-  defineproblem(Layer lyr, Mesh mesh, Matls matls)
+  defineScalableProblem(Layer lyr, Mesh mesh, Matls matls, int xsize, int ysize)
   Create a sample test problem for thermal analysis that can scale
   to a wide variety of sizes.
   It initializes the mesh based on fractions of the size of the mesh.
   The conductivities in the problem are based on the material properties
   in the matls object.
   """
-
-  mesh.field[:, :, lyr.heat]  = 0.0
-  mesh.field[:, :, lyr.resis] = matls.copperCond
-  mesh.field[:, :, lyr.deg]   = 20
-  mesh.field[:, :, lyr.flux]  = 0.0
-  mesh.field[:, :, lyr.isodeg] = 0.0
-  mesh.ifield[:, :, lyr.isoflag] = 0
-  mesh.ifield[:, :, lyr.isonode] = 0
+  mesh = Mesh(x, y, lyr, matls)
   
   # Heat source
   hsx= 0.5
   hsy= 0.5
   hswidth= 0.25
   hsheight= 0.25
-  heat= 1.0
+  heat= 10.0
   srcl= round(mesh.width*(hsx-hswidth*0.5))
   srcr= round(mesh.width*(hsx+hswidth*0.5))
   srct= round(mesh.height*(hsy-hsheight*0.5))
@@ -1235,7 +1391,7 @@ def defineproblem(lyr, mesh, matls):
   heatPerCell= heat/numHeatCells
   print "Heat per cell = ", heatPerCell
   mesh.field[srcl:srcr, srct:srcb, lyr.heat] = heatPerCell
-  mesh.field[srcl:srcr, srct:srcb, lyr.resis] = 1.0
+  mesh.field[srcl:srcr, srct:srcb, lyr.resis] = matls.copperCond
   
   # Boundary conditions
   mesh.field[0, 0:mesh.height, lyr.isodeg] = 25.0
@@ -1254,26 +1410,45 @@ def defineproblem(lyr, mesh, matls):
   cond1t= round(mesh.height*hsy - mesh.height*condwidth*0.5)
   cond1b= round(mesh.height*hsy + mesh.height*condwidth*0.5)
   mesh.field[0:mesh.width, cond1t:cond1b, lyr.resis] = matls.copperCond
-  mesh.field[cond1l:cond1r, 0:mesh.height, lyr.resis] = matls.copperCond    
+  mesh.field[cond1l:cond1r, 0:mesh.height, lyr.resis] = matls.copperCond
+  return mesh
+  
+def defineTinyProblem(lyr, matls):
+  """ 
+  defineTinyProblem(Layer lyr, Mesh mesh, Matls matls)
+  Create a tiny test problem.
+  """
+  mesh = Mesh(3, 3, lyr, matls)
+  
+  mesh.ifield[0:3, 0, lyr.isoflag] = 1
+  mesh.field[1, 1, lyr.heat]    = 2.0
+  print "Mesh: " + str(mesh)
+  return mesh
 
 def Main():
   lyr = Layers()
+  matls = Matls()
   # monitor = Monitors()
   # Minimal problem to confirm operation:
   # mesh = Mesh(5, 5, lyr)
-  showPlots= True
-
-  mesh = Mesh(20, 20, lyr)
-  matls = Matls()
-
-  defineproblem(lyr, mesh, matls)
-  mesh.mapMeshToSolutionMatrix(lyr)
+  showPlots= False
+  useTinyProblem= False
   
+  if useTinyProblem:
+    mesh = defineTinyProblem(lyr, matls)
+  else:
+    mesh = defineScalableProblem(lyr, matls, 300, 300)
+
+  mesh.mapMeshToSolutionMatrix(lyr)
+
   solv = Solver(lyr, mesh)
-  solv.debug= False
   solv.initDebug()
-  solv.spice= False
   solv.loadMatrix(lyr, mesh, matls)
+  
+  if (solv.eigen == True):
+    print "Solving for eigenvalues"
+    solv.solveEigen()
+    print "Finished solving for eigenvalues"
   
   if (solv.spice == True):
     spice= Spice()
@@ -1283,9 +1458,15 @@ def Main():
     spice.readSpiceResults(lyr, mesh)
     
   if (solv.aztec == True):
-    solv.solveMatrix(400000)
+    solv.solveMatrixAztecOO(400000)
     solv.loadSolutionIntoMesh(lyr, mesh)
-    solv.checkEnergyBalance(lyr, mesh)  
+    solv.checkEnergyBalance(lyr, mesh) 
+    
+  if (solv.amesos == True):
+
+    solv.solveMatrixAmesos()
+    solv.loadSolutionIntoMesh(lyr, mesh)
+    solv.checkEnergyBalance(lyr, mesh)
   
   if (solv.debug == True):
     webpage = Webpage(solv, lyr, mesh)
@@ -1303,7 +1484,7 @@ showProfile= True
 if showProfile == True:
   cProfile.run('Main()', 'restats')
   p = pstats.Stats('restats')
-  p.sort_stats('cumulative').print_stats(20)
+  p.sort_stats('cumulative').print_stats(30)
 else:
   Main()
 
@@ -1397,3 +1578,9 @@ def gsitersolve(lyr, mesh, monitor):
 
 # This appears to be the default and it works:
 # solver.SetAztecOption(AztecOO.AZ_output, AztecOO.AZ_none)
+
+# Solutions on infinite resistor grids:
+# http://www.mathpages.com/home/kmath668/kmath668.htm
+
+# Example slides, interesting python code:
+# http://trilinos.org/oldsite/packages/pytrilinos/PyTrilinosTutorial.pdf

@@ -4,7 +4,10 @@
 *.swp
 *.tiff
 *.html
+*.hdf5
 therm.txt
 therm.asc
 therm.cki
 x
+restats
+
