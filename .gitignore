@@ -5,6 +5,7 @@
 *.tiff
 *.html
 *.hdf5
+*.pyc
 therm.txt
 therm.asc
 therm.cki
