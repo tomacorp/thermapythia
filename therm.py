@@ -4,8 +4,10 @@
 # Sun Jul 13 22:30:26 PDT 2014
 #
 # Thermonous pertains to stimulation by heat.
+# The literal ancient Greek is hot minded.
 #
 # TODO:  
+#        Make the spice netlist generation use a string buffer and a file.
 #        Create test harness for sweeps of problem size.
 #        Hook up PNG files.
 #        Hook up HDF5 files
@@ -13,6 +15,8 @@
 #        Make problem 3D
 #        Make tests for 2D, put modules into separate files so that code is 
 #          shared with 3D.
+#        Separate the 2D-specific code in Solver2D.py.
+#        Separate the 2D-specific code in Spice2D.py.
 #        Create test harnesses for each module
 #        Measure xyce memory usage with 
 #          http://stackoverflow.com/questions/13607391/subprocess-memory-usage-in-python
@@ -89,41 +93,53 @@ def defineTinyProblem(lyr, matls):
   print "Mesh: " + str(mesh)
   return mesh
 
+
+def solveAmesos(solv, mesh, lyr):
+  solv.solveMatrixAmesos()
+  solv.loadSolutionIntoMesh(lyr, mesh)
+  solv.checkEnergyBalance(lyr, mesh)
+
+def solveSpice(spice, mesh, lyr):
+  spice.finishSpiceNetlist()
+  proc= spice.runSpiceNetlist()
+  proc.wait()
+  spice.readSpiceResults(lyr, mesh)
+
 def Main():
   lyr = Layers.Layers()
   matls = Matls.Matls()
+  spice= Spice2D.Spice()
   
-  showPlots= True
+  showPlots= False
   useTinyProblem= False
 
   if useTinyProblem:
     mesh = defineTinyProblem(lyr, matls)
   else:
-    mesh = defineScalableProblem(lyr, matls, 5, 5)
+    mesh = defineScalableProblem(lyr, matls, 300, 300)
 
   mesh.mapMeshToSolutionMatrix(lyr)
 
   solv = Solver2D.Solver(lyr, mesh)
-  solv.debug             = True
-  solv.spice             = True
+  solv.debug             = False
+  solv.useSpice             = True
   solv.aztec             = False
   solv.amesos            = True
-  solv.eigen             = True  
+  solv.eigen             = False  
+  
+  if (solv.useSpice == True):
+    solv.spiceSim= Spice2D.Spice()
   
   solv.initDebug()
-  solv.loadMatrix(lyr, mesh, matls)
+  solv.loadMatrix(lyr, mesh, matls, spice)
   
   if (solv.eigen == True):
     print "Solving for eigenvalues"
     solv.solveEigen()
     print "Finished solving for eigenvalues"
   
-  if (solv.spice == True):
-    spice= Spice2D.Spice(solv)
-    spice.createSpiceNetlist()
-    proc= spice.runSpiceNetlist()
-    proc.wait()
-    spice.readSpiceResults(lyr, mesh)
+  if (solv.useSpice == True):
+    solveSpice(spice, mesh, lyr)
     
   if (solv.aztec == True):
     solv.solveMatrixAztecOO(400000)
@@ -131,9 +147,7 @@ def Main():
     solv.checkEnergyBalance(lyr, mesh) 
     
   if (solv.amesos == True):
-    solv.solveMatrixAmesos()
-    solv.loadSolutionIntoMesh(lyr, mesh)
-    solv.checkEnergyBalance(lyr, mesh)
+    solveAmesos(solv, mesh, lyr)
   
   if (solv.debug == True):
     webpage = MatrixDiagnostic.MatrixDiagnosticWebpage(solv, lyr, mesh)
@@ -142,10 +156,11 @@ def Main():
   if (showPlots == True):
     plots= interactivePlot.interactivePlot(lyr, mesh)
     plots.plotTemperature()
-    if (solv.spice == True):
+    if (solv.useSpice == True):
       plots.plotSpicedeg()
       plots.plotLayerDifference(lyr.spicedeg, lyr.deg)
     plots.show()
+
 
 showProfile= True
 if showProfile == True:
