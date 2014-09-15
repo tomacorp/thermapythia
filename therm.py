@@ -21,6 +21,10 @@
 #        Measure xyce memory usage with 
 #          http://stackoverflow.com/questions/13607391/subprocess-memory-usage-in-python
 
+# Xyce uses about 7-10 times the memory and takes about 3 times as long as the raw matrix.
+# 826M
+# 26 seconds to 108 seconds by adding Xyce.
+
 import subprocess, os
 import pstats
 import cProfile
@@ -103,7 +107,7 @@ def solveSpice(spice, mesh, lyr):
   spice.finishSpiceNetlist()
   proc= spice.runSpiceNetlist()
   proc.wait()
-  spice.readSpiceResults(lyr, mesh)
+  spice.readSpiceRawFile(lyr, mesh)
 
 def Main():
   lyr = Layers.Layers()
@@ -116,13 +120,13 @@ def Main():
   if useTinyProblem:
     mesh = defineTinyProblem(lyr, matls)
   else:
-    mesh = defineScalableProblem(lyr, matls, 300, 300)
+    mesh = defineScalableProblem(lyr, matls, 1000, 1000)
 
   mesh.mapMeshToSolutionMatrix(lyr)
 
   solv = Solver2D.Solver(lyr, mesh)
   solv.debug             = False
-  solv.useSpice             = True
+  solv.useSpice          = False
   solv.aztec             = False
   solv.amesos            = True
   solv.eigen             = False  

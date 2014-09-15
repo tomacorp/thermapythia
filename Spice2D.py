@@ -18,8 +18,9 @@ class Spice:
     self.fileIsFinished = False
 
   def finishSpiceNetlist(self):
-    self.f.write(".tran .1 " + str(self.sampleTime) + "\n")
-    self.f.write(".print tran\n")
+    # self.f.write(".tran .1 " + str(self.sampleTime) + "\n")
+    self.f.write(".op\n")
+    # self.f.write(".print tran\n")
     self.f.write(".end\n")
     self.f.close()
     self.fileIsFinished= True
@@ -34,9 +35,26 @@ class Spice:
     thisEnv["PATH"] = xycePath + ":" + thisEnv["PATH"]
     proc= subprocess.Popen(xyceCmd, env=thisEnv)
     return proc
+  
+#  def readOperatingPointSpiceResults(self, lyr, mesh):
+#    """Method to read the DC operating point from an ASCII raw file"""
+#    fraw = self.readAsciiRawHeader(mesh)
+#    self.readDCOperatingPoint(fraw, mesh, lyr)
+#    fraw.close()    
     
-  def readSpiceResults(self, lyr, mesh):
-    """Method to read results from spice simulation"""
+  def readSpiceRawFile(self, lyr, mesh):
+    """
+    Method to read results from spice transient analysis ASCII raw file.
+    simulation. Captures a single point in time, at or near self.sampleTime.
+    """
+    fraw = self.readAsciiRawHeader(mesh)
+
+    # self.readTransientTimePoint(fraw, mesh, lyr)
+    self.readDCOperatingPoint(fraw, mesh, lyr)
+
+    fraw.close()
+
+  def readAsciiRawHeader(self, mesh):
     fraw= open(self.simbasename + '.asc', 'r')
     # Header
     for line in fraw:
@@ -47,6 +65,7 @@ class Spice:
         print "Name: " + name + ", val: " + val
 
     # Variable names and their indexes
+
     for line in fraw:
       if (line == 'Values:\n'):
         break
@@ -60,7 +79,25 @@ class Spice:
           print nodename + ": " + str(nodeIdx) + " " + str(mesh.spiceNodeXName[nodename]) + " " + str(mesh.spiceNodeYName[nodename])
         mesh.spiceNodeX.append(mesh.spiceNodeXName[nodename])
         mesh.spiceNodeY.append(mesh.spiceNodeYName[nodename])
+    return fraw
+  
+  def readDCOperatingPoint(self, fraw, mesh, lyr):
+    idx= 0
+    # First point is just zeroes as a placeholder for time
+    next(fraw)    
+    for line in fraw:
+      voltage= line.strip()
+      if (line == '\n'):
+        break
+      if (idx < len(mesh.spiceNodeX)):
+        # TODO: Add to mesh layer here for visualization.
+        if self.debug == True:
+          print str(idx) + ' ' + voltage + ' ' + str(mesh.spiceNodeX[idx]) + ' ' + str(mesh.spiceNodeY[idx])
+        mesh.field[mesh.spiceNodeX[idx], mesh.spiceNodeY[idx], lyr.spicedeg] = voltage
+        idx += 1
+      continue
 
+  def readTransientTimePoint(self, fraw, mesh, lyr):
     # ASCII data
     atSampleTime= False
     inTimePoint = True
@@ -88,5 +125,3 @@ class Spice:
         continue
       else:
         inTimePoint = False
-
-    fraw.close()
