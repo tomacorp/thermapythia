@@ -114,21 +114,21 @@ def Main():
   matls = Matls.Matls()
   spice= Spice2D.Spice()
   
-  showPlots= False
+  showPlots= True
   useTinyProblem= False
 
   if useTinyProblem:
     mesh = defineTinyProblem(lyr, matls)
   else:
-    mesh = defineScalableProblem(lyr, matls, 1000, 1000)
+    mesh = defineScalableProblem(lyr, matls, 20, 20)
 
   mesh.mapMeshToSolutionMatrix(lyr)
 
   solv = Solver2D.Solver(lyr, mesh)
   solv.debug             = False
   solv.useSpice          = False
-  solv.aztec             = False
-  solv.amesos            = True
+  solv.aztec             = True
+  solv.amesos            = False
   solv.eigen             = False  
   
   if (solv.useSpice == True):
