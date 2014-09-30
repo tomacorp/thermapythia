@@ -1,4 +1,5 @@
 import numpy as np
+import Html
 class MatrixDiagnosticWebpage:
 
   def __init__(self, solv, lyr, mesh):
@@ -21,6 +22,7 @@ class MatrixDiagnosticWebpage:
     f.close()  
     
   def webpage(self):
+    h = Html.Html()
     matrix= ''
     rhsStr= ''
     xhtml= ''
@@ -98,14 +100,72 @@ class MatrixDiagnosticWebpage:
     counts += "Total number of independent nodes= " + str(self.mesh.nodeCount) + "<br/>"
     counts += "Most Common number of nonzero matrix entries per row= " + str(mostCommon) + "<br/>"
     counts = "<table>" + counts + "</table>"
+    
+    # Description
+    descr = """ 
+    A matrix is in sections:
+    
+    <table border='2'>
+      <tr>
+        <td>GF</td><tr><td>GB</td><td>0</td>
+      </tr>
+        </td>
+      <td>D</td>
+    </tr>
+    
+    <tr><td>D^T</td><td>0</td></tr>
+    </table>
+    
+    <table>
+    <tr><td>G</td><td>Transconductance matrix</td>
+        <td>The number of rows in G is self.nodeGcount .
+        The first set of rows GF is for the square mesh elements.
+        The second set of rows GB is for the boundary condition voltage source nodes.
+        </td>
+    </tr>
+    <tr><td>B</td><td>Voltage sources</td>
+        <td>The number of rows is the number of boundary condition mesh cells.
+        </td>
+    </tr>
+    <tr><td>D^T</td><td>D Transpose</td><td></td></tr>
+    <tr><td>C</td><td>Zeros</td><td></td></tr>
+    </table>
+
+    <pre>
+    G is in two sections, which are the upper left GF (for field) and GB (for boundary)
+    The analysis is of the form  Ax = b
+    For rows in b corresponding to G,  
+       b is the known value of the current (constant power in thermal circuits) sources
+    For rows in b corresponding to D, (constant temperature boundary conditions) 
+       b is the known value of temperature at the boundary.
+    The number of rows in D is self.nodeDcount
+    The number of rows in G is self.nodeGcount
+    The number of rows in GF is self.nodeGFcount
+    The number of rows in GB is self.nodeGBcount
+    The total number of rows in A is self.nodeCount
+  
+    The solution to the matrix is the vector x
+    For rows in x corresponding to G, these are voltages (temperature)
+    For rows in x corresponding to D, these are currents (power flow) in the boundary condition.
+  
+    For energy balance in steady state, the current into the constant-temperature boundary condition 
+    must equal the current from the constant-power thermal sources.
+  
+    The index of the last nodes in the G submatrix for the field plus one is the number
+    of nodes in the field GF. Add the boundary nodes GB to G.
+  
+    Also count the number of boundary sources, which is the size of the D matrix.
+    </pre>
+    """
   
     # Create web page
-    head  = "<title>Matrix output</title>"
-    body  = "<h1>Ax = b</h1>"
-    body += "<h3>A Matrix</h3>"
-    body += "<pre>" + matrix + "</pre>"
-    body += "<h3>Vectors</h3>"
-    body += "<pre>" + vectors + "</pre>"
-    body += "<h3>Counts</h3>"
-    body += "<pre>" + counts + "</pre>"
-    self.html= "<html><head>" + head + "</head><body>" + body + "</body></html>"  
+    head  = h.title("Matrix output")
+    body  = h.h1("Ax = b")
+    body += h.h3("A Matrix")
+    body += h.pre(matrix)
+    body += h.h3("Vectors")
+    body += h.pre(vectors)
+    body += h.h3("Counts")
+    body += h.pre(counts) + descr
+    self.html= h.html(h.head(head) + h.body(body))  
+ 

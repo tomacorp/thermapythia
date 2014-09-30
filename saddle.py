@@ -5,6 +5,9 @@
 #
 # Thermonous pertains to stimulation by heat.
 # The literal ancient Greek is hot minded.
+# If you need a name for it, "ephippion" is the ancient Greek word for saddle blanket
+# and in Latin is "ephippia".  "Ephippos" means on horseback.
+# 
 #
 # TODO:  
 #        Make the spice netlist generation use a string buffer and a file.
@@ -114,21 +117,21 @@ def Main():
   matls = Matls.Matls()
   spice= Spice2D.Spice()
   
-  showPlots= True
+  showPlots= False
   useTinyProblem= False
 
   if useTinyProblem:
     mesh = defineTinyProblem(lyr, matls)
   else:
-    mesh = defineScalableProblem(lyr, matls, 20, 20)
+    mesh = defineScalableProblem(lyr, matls, 5, 5)
 
   mesh.mapMeshToSolutionMatrix(lyr)
 
   solv = Solver2D.Solver(lyr, mesh)
-  solv.debug             = False
+  solv.debug             = True
   solv.useSpice          = False
-  solv.aztec             = False
-  solv.amesos            = True
+  solv.aztec             = True
+  solv.amesos            = False
   solv.eigen             = False  
   
   if (solv.useSpice == True):
