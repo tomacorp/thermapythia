@@ -10,8 +10,9 @@ AWS_INSTANCE=$1
 export AWS_KEY=/Users/toma/tools/aws/toma-admin-key-pair-us-west.pem
 export AWS_USER=ec2-user
 export AWS_HOME=/home/ec2-user
+export GIT_SSH=/Users/toma/tools/aws/bin/gitwrap.sh
 
 export PYCODE=/Users/toma/tools/trilinos/pytrilinos/matrixmnodal
 cd $PYCODE
 
-git push ssh://$AwS_USER@$AWS_INSTANCE:$AWS_HOME 
+git push ssh://$AWS_USER@$AWS_INSTANCE:$AWS_HOME/therm master
