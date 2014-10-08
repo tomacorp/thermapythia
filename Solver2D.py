@@ -116,7 +116,7 @@ class Solver:
     self.loadMatrixRightEdge(lyr, mesh, spice, matls)
     self.loadMatrixTopEdge(lyr, mesh, spice, matls)
     self.loadMatrixLeftEdge(lyr, mesh, spice, matls)
-    self.loadMatrixBody(lyr, mesh, matls)  
+    self.loadMatrixBody(lyr, mesh, spice, matls)  
     self.loadMatrixHeatSources(lyr, mesh)
     
     if self.useSpice == True:
@@ -152,7 +152,7 @@ class Solver:
 
   # This is the bottleneck
   # RAM requirement is about 1kb/mesh element.
-  def loadMatrixBody(self, lyr, mesh, matls):
+  def loadMatrixBody(self, lyr, mesh, spice, matls):
     if (mesh.height < 3) or (mesh.width < 3):
       return
     for x in range(1, mesh.width-1):

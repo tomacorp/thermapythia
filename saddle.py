@@ -5,8 +5,9 @@
 #
 # Thermonous pertains to stimulation by heat.
 # The literal ancient Greek is hot minded.
-#
-# Thermonice is like spice. Thermospice.
+# If you need a name for it, "ephippion" is the ancient Greek word for saddle blanket
+# and in Latin is "ephippia".  "Ephippos" means on horseback.
+# 
 #
 # TODO:  
 #        Make the spice netlist generation use a string buffer and a file.
@@ -27,7 +28,6 @@
 # 826M
 # 26 seconds to 108 seconds by adding Xyce.
 
-from PIL import Image, ImageDraw
 import subprocess, os
 import pstats
 import cProfile
@@ -66,7 +66,7 @@ def defineScalableProblem(lyr, matls, x, y):
   heatPerCell= heat/numHeatCells
   print "Heat per cell = ", heatPerCell
   mesh.field[srcl:srcr, srct:srcb, lyr.heat] = heatPerCell
-  mesh.field[srcl:srcr, srct:srcb, lyr.resis] = matls.copperResistancePerSquare
+  mesh.field[srcl:srcr, srct:srcb, lyr.resis] = matls.copperCond
   
   # Boundary conditions
   mesh.field[0, 0:mesh.height, lyr.isodeg] = 25.0
@@ -84,46 +84,8 @@ def defineScalableProblem(lyr, matls, x, y):
   cond1r= round(mesh.width*hsx + mesh.width*condwidth*0.5)
   cond1t= round(mesh.height*hsy - mesh.height*condwidth*0.5)
   cond1b= round(mesh.height*hsy + mesh.height*condwidth*0.5)
-  mesh.field[0:mesh.width, cond1t:cond1b, lyr.resis] = matls.copperResistancePerSquare
-  mesh.field[cond1l:cond1r, 0:mesh.height, lyr.resis] = matls.copperResistancePerSquare
-  return mesh
-
-def definePNGProblem(fn, lyr, matls):
-  """
-  Read a PNG file and load the data structure
-  """
-  heatPerCell= 48e-6
-  pngproblem = Image.open(fn, mode='r')
-  xysize= pngproblem.size
-  width= xysize[0]
-  height= xysize[1]
-  print "Width: " + str(width) + " Height: " + str(height)
-  
-  mesh = Mesh2D.Mesh(width, height, lyr, matls)
-
-  pix = pngproblem.load()
-  copperCellCount=0
-  padCellCount=0
-  isoCellCount=0
-  for xn in range(0,width-1):
-    for tyn in range(0, height-1):
-      # Graphing package has +y up, png has it down
-      yn= height - 1 - tyn
-      if pix[xn,yn][0] > 0: 
-        mesh.field[xn, tyn, lyr.resis] = matls.copperResistancePerSquare
-        mesh.field[xn, tyn, lyr.heat] = heatPerCell
-        copperCellCount += 1
-        padCellCount += 1
-      if pix[xn,yn][1] > 0:
-        mesh.field[xn, tyn, lyr.resis] = matls.copperResistancePerSquare
-        copperCellCount += 1
-      if pix[xn,yn][2] > 0:
-        mesh.ifield[xn, tyn, lyr.isoflag] = 1
-        mesh.field[xn, tyn, lyr.isodeg] = 25.0
-        isoCellCount += 1
-        
-  print "Copper px: " + str(copperCellCount) + " Pad px: " + str(padCellCount) + " Iso px: " + str(isoCellCount)
-        
+  mesh.field[0:mesh.width, cond1t:cond1b, lyr.resis] = matls.copperCond
+  mesh.field[cond1l:cond1r, 0:mesh.height, lyr.resis] = matls.copperCond
   return mesh
   
 def defineTinyProblem(lyr, matls):
@@ -143,11 +105,6 @@ def solveAmesos(solv, mesh, lyr):
   solv.solveMatrixAmesos()
   solv.loadSolutionIntoMesh(lyr, mesh)
   solv.checkEnergyBalance(lyr, mesh)
-  
-def solveAztecOO(solv, mesh, lyr):
-  solv.solveMatrixAztecOO(400000)
-  solv.loadSolutionIntoMesh(lyr, mesh)
-  solv.checkEnergyBalance(lyr, mesh)   
 
 def solveSpice(spice, mesh, lyr):
   spice.finishSpiceNetlist()
@@ -155,31 +112,27 @@ def solveSpice(spice, mesh, lyr):
   proc.wait()
   spice.readSpiceRawFile(lyr, mesh)
 
-def solveSetup(solv):
-  solv.debug             = False
-  solv.useSpice          = True
-  solv.aztec             = False
-  solv.amesos            = True
-  solv.eigen             = False 
-
 def Main():
   lyr = Layers.Layers()
   matls = Matls.Matls()
   spice= Spice2D.Spice()
   
-  showPlots= True
+  showPlots= False
   useTinyProblem= False
 
-  mesh = definePNGProblem("Layout4.png", lyr, matls)
-  #if useTinyProblem:
-    #mesh = defineTinyProblem(lyr, matls)
-  #else:
-    #mesh = defineScalableProblem(lyr, matls, 20, 20)
+  if useTinyProblem:
+    mesh = defineTinyProblem(lyr, matls)
+  else:
+    mesh = defineScalableProblem(lyr, matls, 5, 5)
 
   mesh.mapMeshToSolutionMatrix(lyr)
 
   solv = Solver2D.Solver(lyr, mesh)
-  solveSetup(solv)
+  solv.debug             = True
+  solv.useSpice          = False
+  solv.aztec             = True
+  solv.amesos            = False
+  solv.eigen             = False  
   
   if (solv.useSpice == True):
     solv.spiceSim= Spice2D.Spice()
@@ -196,7 +149,9 @@ def Main():
     solveSpice(spice, mesh, lyr)
     
   if (solv.aztec == True):
-    solveAztecOO(solv, mesh, lyr)
+    solv.solveMatrixAztecOO(400000)
+    solv.loadSolutionIntoMesh(lyr, mesh)
+    solv.checkEnergyBalance(lyr, mesh) 
     
   if (solv.amesos == True):
     solveAmesos(solv, mesh, lyr)
@@ -212,6 +167,7 @@ def Main():
       plots.plotSpicedeg()
       plots.plotLayerDifference(lyr.spicedeg, lyr.deg)
     plots.show()
+
 
 showProfile= True
 if showProfile == True:
