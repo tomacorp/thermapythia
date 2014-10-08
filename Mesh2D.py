@@ -48,7 +48,7 @@ class Mesh:
     self.spiceNodeX = []
     self.spiceNodeY = []
     self.field[:, :, lyr.heat]  = 0.0
-    self.field[:, :, lyr.resis] = matls.copperCond
+    self.field[:, :, lyr.resis] = matls.fr4ResistancePerSquare
     self.field[:, :, lyr.deg]   = 20
     self.field[:, :, lyr.flux]  = 0.0
     self.field[:, :, lyr.isodeg] = 25.0
