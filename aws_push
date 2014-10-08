@@ -1,0 +1,17 @@
+#!/bin/sh
+# Program to push files to aws via git ssh
+# Tom Anderson
+# Tue Oct  7 22:55:27 PDT 2014
+
+# Set this to whatever instance is created:
+AWS_INSTANCE=$1
+# For example:
+# export AWS_INSTANCE=ec2-54-69-196-140.us-west-2.compute.amazonaws.com
+export AWS_KEY=/Users/toma/tools/aws/toma-admin-key-pair-us-west.pem
+export AWS_USER=ec2-user
+export AWS_HOME=/home/ec2-user
+
+export PYCODE=/Users/toma/tools/trilinos/pytrilinos/matrixmnodal
+cd $PYCODE
+
+git push ssh://$AwS_USER@$AWS_INSTANCE:$AWS_HOME 
