@@ -7,6 +7,9 @@
 *.hdf5
 *.pyc
 *.pdf
+*.tar.gz
+*.tgz
+*.geo
 therm.txt
 therm.asc
 therm.cki

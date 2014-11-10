@@ -1,0 +1,1 @@
+scp -i $AWS_KEY *ex* $AWS_USER@$AWS_INSTANCE:/home/ec2-user/py_tests

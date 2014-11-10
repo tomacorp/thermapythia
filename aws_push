@@ -15,4 +15,4 @@ export GIT_SSH=/Users/toma/tools/aws/bin/gitwrap.sh
 export PYCODE=/Users/toma/tools/trilinos/pytrilinos/matrixmnodal
 cd $PYCODE
 
-git push ssh://$AWS_USER@$AWS_INSTANCE:$AWS_HOME/therm master
+git push ssh://$AWS_USER@$AWS_INSTANCE:$AWS_HOME/therm aztec

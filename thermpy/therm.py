@@ -157,7 +157,7 @@ def solveSpice(spice, mesh, lyr):
 
 def solveSetup(solv):
   solv.debug             = False
-  solv.useSpice          = False
+  solv.useSpice          = True
   solv.aztec             = False
   solv.amesos            = True
   solv.eigen             = False 

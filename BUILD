@@ -33,7 +33,7 @@ export SOURCE=$WORKDIR/trilinos-11.8.1-Source
 export SOURCE_DIST=/Users/toma/Downloads/trilinos-11.8.1-Source.tar.gz
 
 # Trilinos build
-# Problem: it uses pylib from 2.7.5 from /usr/lib instead of the 2.7.8 build in /Users/toma/...
+# Potential problem: make sure it does not use pylib from 2.7.5 from /usr/lib instead of the 2.7.8 build in /Users/toma/...
 rm -rf $SOURCE
 cd $WORKDIR
 tar -zxf $SOURCE_DIST

@@ -5,9 +5,7 @@ import Layers
 class interactivePlot:
   def __init__(self, lyr, mesh):
     self.lyr     = lyr
-    self.mesh    = mesh
-    self.interative = True
-    self.png = True
+    self.mesh    = mesh  
 
   def plotSolution(self):
     """
@@ -37,10 +35,7 @@ class interactivePlot:
     quad4= plt.pcolormesh(self.mesh.xr, self.mesh.yr, z5)
     plt.colorbar()
     plt.title('Nodes with Dirichlet boundary conditions map')
-    if self.interative == True:
-      plt.draw()
-    if self.png == True:
-      plt.savefig('thermpypng/dirichlet_map.png')
+    plt.draw()
 
   def plotHeatSources(self):
     """
@@ -53,10 +48,7 @@ class interactivePlot:
     quad4= plt.pcolormesh(self.mesh.xr, self.mesh.yr, z4)
     plt.colorbar()
     plt.title('Heat sources map')
-    if self.interative == True:
-      plt.draw()
-    if self.png == True:
-      plt.savefig('thermpypng/heat_sources_map.png')
+    plt.draw()
 
   def plotDirichlet(self):
     """
@@ -70,10 +62,7 @@ class interactivePlot:
     quad3= plt.pcolormesh(self.mesh.xr, self.mesh.yr, z3)
     plt.colorbar()
     plt.title('Dirichlet boundary conditions temperature map')
-    if self.interative == True:
-      plt.draw()
-    if self.png == True:
-      plt.savefig('thermpypng/dirichlet_temperature_map.png')
+    plt.draw()
 
   def plotTemperature(self):
     """
@@ -86,10 +75,7 @@ class interactivePlot:
     quad2= plt.pcolormesh(self.mesh.xr, self.mesh.yr, z2)
     plt.colorbar()
     plt.title('AztecOO heat map')
-    if self.interative == True:
-      plt.draw()
-    if self.png == True:
-      plt.savefig('thermpypng/aztecOO_heat_map.png')
+    plt.draw()
 
   def plotResistance(self):
     """
@@ -102,10 +88,7 @@ class interactivePlot:
     quad1= plt.pcolormesh(self.mesh.xr, self.mesh.yr, z1)
     plt.colorbar()
     plt.title('Thermal resistance map')
-    if self.interative == True:
-      plt.draw()
-    if self.png == True:
-      plt.savefig('thermpypng/thermal_res_map.png')
+    plt.draw()
     
   def plotSpicedeg(self):
     """
@@ -119,7 +102,6 @@ class interactivePlot:
     plt.colorbar()
     plt.title('Spice heat map')
     plt.draw() 
-    plt.savefig('thermpypng/spice_heat_map.png')
     
   def plotLayerDifference(self, layer1, layer2):
     """
@@ -134,8 +116,7 @@ class interactivePlot:
     quad1= plt.pcolormesh(self.mesh.xr, self.mesh.yr, z3)
     plt.colorbar()
     plt.title('Difference heat map')
-    plt.draw()
-    plt.savefig('thermpypng/difference_heat_map.png')
+    plt.draw()    
 
 def main():
   print "This is a test program for interactivePlot. It draws a graph on the screen."
@@ -150,11 +131,8 @@ def main():
       mesh.field[x, y, lyr.spicedeg] = (x+1) * ((y+1) + 1)
 
   plots= interactivePlot(lyr, mesh)
-  plots.png= True
-  plots.interative= True
   plots.plotSpicedeg() 
   plots.show()
-
 
 if __name__ == '__main__':
   main()
