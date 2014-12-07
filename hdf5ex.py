@@ -16,7 +16,7 @@ def writeHdf5(filename):
   f.close()
 
 def dumpHdf5(filename):
-  """Method to execute xyce"""
+  """Method to execute h5dump"""
   h5dumpBin = "/usr/local/bin/h5dump"
   h5dumpCmd = [h5dumpBin, filename]
   thisEnv = os.environ.copy()

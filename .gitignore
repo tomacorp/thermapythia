@@ -10,6 +10,8 @@
 *.tar.gz
 *.tgz
 *.geo
+*.png
+*.mm
 therm.txt
 therm.asc
 therm.cki
