@@ -7,6 +7,9 @@ class Html:
   def td(self, x):
     return "<td>" + str(x) + "</td>"
   
+  def tdh(self, x):
+    return "<td bgcolor='#AAEEAA'>" + str(x) + "</td>"  
+  
   def tr(self, x):
     return "<tr>" + str(x) + "</tr>"
   
@@ -36,3 +39,14 @@ class Html:
   
   def title(self, x):
     return "<title>" + str(x) + "</title>"
+  
+  def matrixtablestyle(self):
+    return  """
+      <style>
+      table  { margin-left: 10px; 
+               border-right: 1px solid #000; 
+               border-left: 1px solid #000; } 
+      td, th { padding: 5px; }
+      </style>
+      """
+  

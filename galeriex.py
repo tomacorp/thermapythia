@@ -1,12 +1,15 @@
 #! /usr/bin/env python
 #
-# PyTrilinosExample.py (SAND Number: 2010-7675 C) - An example python script
+# Derived from PyTrilinosExample.py (SAND Number: 2010-7675 C)
+# An example python script
 # that demonstrates the use of PyTrilinos to solve a simple 2D Laplace problem
 # on the unit square with Dirichlet boundary conditions, capable of parallel
 # execution.
 
 import numpy
 import optparse
+import MatrixMarket as mm
+import MMHtml
 from math import pi
 from PyTrilinos import Epetra, AztecOO, EpetraExt, Amesos
 try:
@@ -127,7 +130,7 @@ class Laplace2D:
 
     def solveIterative(self, u, tolerance=1.0e-5):
         """
-        Laplace2D.solve(u, tolerance=1.0e-5)
+        Laplace2D.solveIterative(u, tolerance=1.0e-5)
 
         Solve the 2D Laplace problem.  Argument u is an Epetra.Vector
         constructed using Laplace2D.getRowMap() and filled with values that
@@ -295,11 +298,23 @@ def main():
             probFilename = mmPrefix + "A.mm"
             rhsFilename = mmPrefix + "RHS.mm"
             xFilename = mmPrefix + "x.mm"
+            htmlFilename = mmPrefix + "AxRHS.html"
             if options.verbose:
                 print "Creating files " + probFilename + " " + rhsFilename + " " + xFilename
             EpetraExt.RowMatrixToMatrixMarketFile(probFilename, mx)   
             EpetraExt.MultiVectorToMatrixMarketFile(rhsFilename, rhs)
             EpetraExt.MultiVectorToMatrixMarketFile(xFilename, uout)
+            
+            MMHtmlWriter= MMHtml.MMHtml()
+            MMReaderRHS= mm.MatrixMarket()
+            MMRHS= MMReaderRHS.read(rhsFilename) 
+            
+            MMReaderX= mm.MatrixMarket()
+            MMX= MMReaderX.read(xFilename)     
+            
+            MMReaderMMA= mm.MatrixMarket()     
+            MMA= MMReaderMMA.read(probFilename)
+            MMHtmlWriter.writeHtml([MMA, MMX, MMRHS], htmlFilename)            
     
         # Plot, if requested
         if options.plot:

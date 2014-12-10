@@ -169,12 +169,13 @@ def Main():
   
   showPlots= True
   useTinyProblem= False
+  usePNGInput= False
 
   mesh = definePNGProblem("Layout4.png", lyr, matls)
-  #if useTinyProblem:
-    #mesh = defineTinyProblem(lyr, matls)
-  #else:
-    #mesh = defineScalableProblem(lyr, matls, 20, 20)
+  if useTinyProblem:
+    mesh = defineTinyProblem(lyr, matls)
+  else:
+    mesh = defineScalableProblem(lyr, matls, 20, 20)
 
   mesh.mapMeshToSolutionMatrix(lyr)
 
