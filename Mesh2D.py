@@ -1,4 +1,4 @@
-
+from PIL import Image, ImageDraw
 import numpy as np
 class Mesh:
 
@@ -19,18 +19,13 @@ class Mesh:
   
   """
 
-  def __init__(self, w, h, lyr, matls):
+  def __init__(self, config, lyr, matls):
     """
     __init__(Mesh self, int w, int h, Layers lyr, Matls matls)
     Create a square mesh of size w by h.
     The mesh data structure is in self.field, which holds double precision numbers,
     and self.ifield, which holds integers.
     """
-    self.width = w
-    self.height = h
-    self.field = np.zeros((self.width, self.height, lyr.numdoublelayers), dtype = 'double')
-    self.ifield = np.zeros((self.width, self.height, lyr.numintlayers), dtype = 'int')
-    self.xr, self.yr= np.mgrid[0:self.width+1, 0:self.height+1]
     self.nodeGcount = 0
     self.nodeDcount = 0
     self.nodeCount = 0
@@ -47,13 +42,23 @@ class Mesh:
     # a layer in the mesh. Nodes start at 1. The first variable is time.
     self.spiceNodeX = []
     self.spiceNodeY = []
+
+    self.defineProblem(config, lyr, matls)
+    self.mapMeshToSolutionMatrix(lyr)
+    
+  def setMeshDefaults(self, w, h, lyr, matls):
+    self.width = w
+    self.height = h
+    self.field = np.zeros((self.width, self.height, lyr.numdoublelayers), dtype = 'double')
+    self.ifield = np.zeros((self.width, self.height, lyr.numintlayers), dtype = 'int')
+    self.xr, self.yr= np.mgrid[0:self.width+1, 0:self.height+1]
     self.field[:, :, lyr.heat]  = 0.0
     self.field[:, :, lyr.resis] = matls.fr4ResistancePerSquare
     self.field[:, :, lyr.deg]   = 20
     self.field[:, :, lyr.flux]  = 0.0
     self.field[:, :, lyr.isodeg] = 25.0
     self.ifield[:, :, lyr.isoflag] = 0
-    self.ifield[:, :, lyr.isonode] = 0    
+    self.ifield[:, :, lyr.isonode] = 0     
 
   def solveTemperatureNodeCount(self):
     """ 
@@ -144,3 +149,113 @@ class Mesh:
     print "Number of independent nodes in D matrix= ", self.nodeDcount
     print "Total number of independent nodes= ", self.nodeCount
     
+  # This can scale by using a PNG input instead of code
+  def defineScalableProblem(mesh, lyr, matls, x, y):
+    """
+    defineScalableProblem(Layer lyr, Mesh mesh, Matls matls, int xsize, int ysize)
+    Create a sample test problem for thermal analysis that can scale
+    to a wide variety of sizes.
+    It initializes the mesh based on fractions of the size of the mesh.
+    The conductivities in the problem are based on the material properties
+    in the matls object.
+    """
+    mesh.setMeshDefaults(x, y, lyr, matls)
+    
+    # Heat source
+    hsx= 0.5
+    hsy= 0.5
+    hswidth= 0.25
+    hsheight= 0.25
+    heat= 10.0
+    srcl= round(mesh.width*(hsx-hswidth*0.5))
+    srcr= round(mesh.width*(hsx+hswidth*0.5))
+    srct= round(mesh.height*(hsy-hsheight*0.5))
+    srcb= round(mesh.height*(hsy+hsheight*0.5))
+    numHeatCells= (srcr - srcl)*(srcb-srct)
+    heatPerCell= heat/numHeatCells
+    print "Heat per cell = ", heatPerCell
+    mesh.field[srcl:srcr, srct:srcb, lyr.heat] = heatPerCell
+    mesh.field[srcl:srcr, srct:srcb, lyr.resis] = matls.copperResistancePerSquare
+    
+    # Boundary conditions
+    mesh.field[0, 0:mesh.height, lyr.isodeg] = 25.0
+    mesh.field[mesh.width-1, 0:mesh.height, lyr.isodeg] = 25.0
+    mesh.field[0:mesh.width, 0, lyr.isodeg] = 25.0
+    mesh.field[0:mesh.width, mesh.height-1, lyr.isodeg] = 25.0
+    mesh.ifield[0, 0:mesh.height, lyr.isoflag] = 1
+    mesh.ifield[mesh.width-1, 0:mesh.height, lyr.isoflag] = 1
+    mesh.ifield[0:mesh.width, 0, lyr.isoflag] = 1
+    mesh.ifield[0:mesh.width, mesh.height-1, lyr.isoflag] = 1
+    
+    # Thermal conductors
+    condwidth= 0.05
+    cond1l= round(mesh.width*hsx - mesh.width*condwidth*0.5)
+    cond1r= round(mesh.width*hsx + mesh.width*condwidth*0.5)
+    cond1t= round(mesh.height*hsy - mesh.height*condwidth*0.5)
+    cond1b= round(mesh.height*hsy + mesh.height*condwidth*0.5)
+    mesh.field[0:mesh.width, cond1t:cond1b, lyr.resis] = matls.copperResistancePerSquare
+    mesh.field[cond1l:cond1r, 0:mesh.height, lyr.resis] = matls.copperResistancePerSquare
+  
+  def definePNGProblem(mesh, fn, lyr, matls):
+    """
+    Read a PNG file and load the data structure
+    """
+    heatPerCell= 48e-6
+    pngproblem = Image.open(fn, mode='r')
+    xysize= pngproblem.size
+    width= xysize[0]
+    height= xysize[1]
+    print "Width: " + str(width) + " Height: " + str(height)
+  
+    mesh.setMeshDefaults(width, height, lyr, matls)
+  
+    pix = pngproblem.load()
+    copperCellCount=0
+    padCellCount=0
+    isoCellCount=0
+    for xn in range(0,width-1):
+      for tyn in range(0, height-1):
+        # Graphing package has +y up, png has it down
+        yn= height - 1 - tyn
+        if pix[xn,yn][0] > 0: 
+          mesh.field[xn, tyn, lyr.resis] = matls.copperResistancePerSquare
+          mesh.field[xn, tyn, lyr.heat] = heatPerCell
+          copperCellCount += 1
+          padCellCount += 1
+        if pix[xn,yn][1] > 0:
+          mesh.field[xn, tyn, lyr.resis] = matls.copperResistancePerSquare
+          copperCellCount += 1
+        if pix[xn,yn][2] > 0:
+          mesh.ifield[xn, tyn, lyr.isoflag] = 1
+          mesh.field[xn, tyn, lyr.isodeg] = 25.0
+          isoCellCount += 1
+          
+    print "Copper px: " + str(copperCellCount) + " Pad px: " + str(padCellCount) + " Iso px: " + str(isoCellCount)
+    
+  def defineTinyProblem(mesh, lyr, matls):
+    """ 
+    defineTinyProblem(Layer lyr, Mesh mesh, Matls matls)
+    Create a tiny test problem.
+    """
+    mesh.setMeshDefaults(3, 3, lyr, matls)
+    
+    mesh.ifield[0:3, 0, lyr.isoflag] = 1
+    mesh.field[1, 1, lyr.heat]    = 2.0
+    print "Mesh: " + str(mesh)
+    
+  def defineProblem(mesh, config, lyr, matls):
+    foundProblem= 0
+    for problem in config:
+      if problem['active'] == 1:
+        if (problem['type'] == "tiny"):
+          mesh.defineTinyProblem(lyr, matls)
+          foundProblem= 1
+        if (problem['type'] == "png"):
+          mesh.definePNGProblem(problem['file'], lyr, matls)
+          foundProblem= 1
+        if (problem['type'] == "scalable"):
+          mesh.defineScalableProblem(lyr, matls, problem['xsize'], problem['ysize'])
+          foundProblem= 1
+    if foundProblem == 0:
+      print "Problem not specified or not found in configuration"
+          

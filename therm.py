@@ -13,7 +13,13 @@
 #        Create test harness for sweeps of problem size.
 #        Hook up PNG files.
 #        Hook up HDF5 files
+#
 #        Create ASCII files for layers, materials, and mesh parameters
+#        Create master simulation file to include problem description, solvers,
+#          solver parameters, geometry parameters, input png image file names, etc.
+#        Create master simulation output file to include matrix descriptions,
+#          spice netlist, output file names, output png images, etc.
+#
 #        Make problem 3D
 #        Make tests for 2D, put modules into separate files so that code is 
 #          shared with 3D.
@@ -37,175 +43,34 @@ import Matls
 import Mesh2D
 import Solver2D
 import Spice2D
+import ParseSimFile
 import MatrixDiagnostic
 import interactivePlot
+import yaml
 
-# This can scale by using a PNG input instead of code
-def defineScalableProblem(lyr, matls, x, y):
-  """
-  defineScalableProblem(Layer lyr, Mesh mesh, Matls matls, int xsize, int ysize)
-  Create a sample test problem for thermal analysis that can scale
-  to a wide variety of sizes.
-  It initializes the mesh based on fractions of the size of the mesh.
-  The conductivities in the problem are based on the material properties
-  in the matls object.
-  """
-  mesh = Mesh2D.Mesh(x, y, lyr, matls)
   
-  # Heat source
-  hsx= 0.5
-  hsy= 0.5
-  hswidth= 0.25
-  hsheight= 0.25
-  heat= 10.0
-  srcl= round(mesh.width*(hsx-hswidth*0.5))
-  srcr= round(mesh.width*(hsx+hswidth*0.5))
-  srct= round(mesh.height*(hsy-hsheight*0.5))
-  srcb= round(mesh.height*(hsy+hsheight*0.5))
-  numHeatCells= (srcr - srcl)*(srcb-srct)
-  heatPerCell= heat/numHeatCells
-  print "Heat per cell = ", heatPerCell
-  mesh.field[srcl:srcr, srct:srcb, lyr.heat] = heatPerCell
-  mesh.field[srcl:srcr, srct:srcb, lyr.resis] = matls.copperResistancePerSquare
-  
-  # Boundary conditions
-  mesh.field[0, 0:mesh.height, lyr.isodeg] = 25.0
-  mesh.field[mesh.width-1, 0:mesh.height, lyr.isodeg] = 25.0
-  mesh.field[0:mesh.width, 0, lyr.isodeg] = 25.0
-  mesh.field[0:mesh.width, mesh.height-1, lyr.isodeg] = 25.0
-  mesh.ifield[0, 0:mesh.height, lyr.isoflag] = 1
-  mesh.ifield[mesh.width-1, 0:mesh.height, lyr.isoflag] = 1
-  mesh.ifield[0:mesh.width, 0, lyr.isoflag] = 1
-  mesh.ifield[0:mesh.width, mesh.height-1, lyr.isoflag] = 1
-  
-  # Thermal conductors
-  condwidth= 0.05
-  cond1l= round(mesh.width*hsx - mesh.width*condwidth*0.5)
-  cond1r= round(mesh.width*hsx + mesh.width*condwidth*0.5)
-  cond1t= round(mesh.height*hsy - mesh.height*condwidth*0.5)
-  cond1b= round(mesh.height*hsy + mesh.height*condwidth*0.5)
-  mesh.field[0:mesh.width, cond1t:cond1b, lyr.resis] = matls.copperResistancePerSquare
-  mesh.field[cond1l:cond1r, 0:mesh.height, lyr.resis] = matls.copperResistancePerSquare
-  return mesh
-
-def definePNGProblem(fn, lyr, matls):
-  """
-  Read a PNG file and load the data structure
-  """
-  heatPerCell= 48e-6
-  pngproblem = Image.open(fn, mode='r')
-  xysize= pngproblem.size
-  width= xysize[0]
-  height= xysize[1]
-  print "Width: " + str(width) + " Height: " + str(height)
-  
-  mesh = Mesh2D.Mesh(width, height, lyr, matls)
-
-  pix = pngproblem.load()
-  copperCellCount=0
-  padCellCount=0
-  isoCellCount=0
-  for xn in range(0,width-1):
-    for tyn in range(0, height-1):
-      # Graphing package has +y up, png has it down
-      yn= height - 1 - tyn
-      if pix[xn,yn][0] > 0: 
-        mesh.field[xn, tyn, lyr.resis] = matls.copperResistancePerSquare
-        mesh.field[xn, tyn, lyr.heat] = heatPerCell
-        copperCellCount += 1
-        padCellCount += 1
-      if pix[xn,yn][1] > 0:
-        mesh.field[xn, tyn, lyr.resis] = matls.copperResistancePerSquare
-        copperCellCount += 1
-      if pix[xn,yn][2] > 0:
-        mesh.ifield[xn, tyn, lyr.isoflag] = 1
-        mesh.field[xn, tyn, lyr.isodeg] = 25.0
-        isoCellCount += 1
-        
-  print "Copper px: " + str(copperCellCount) + " Pad px: " + str(padCellCount) + " Iso px: " + str(isoCellCount)
-        
-  return mesh
-  
-def defineTinyProblem(lyr, matls):
-  """ 
-  defineTinyProblem(Layer lyr, Mesh mesh, Matls matls)
-  Create a tiny test problem.
-  """
-  mesh = Mesh2D.Mesh(3, 3, lyr, matls)
-  
-  mesh.ifield[0:3, 0, lyr.isoflag] = 1
-  mesh.field[1, 1, lyr.heat]    = 2.0
-  print "Mesh: " + str(mesh)
-  return mesh
-
-
-def solveAmesos(solv, mesh, lyr):
-  solv.solveMatrixAmesos()
-  solv.loadSolutionIntoMesh(lyr, mesh)
-  solv.checkEnergyBalance(lyr, mesh)
-  
-def solveAztecOO(solv, mesh, lyr):
-  solv.solveMatrixAztecOO(400000)
-  solv.loadSolutionIntoMesh(lyr, mesh)
-  solv.checkEnergyBalance(lyr, mesh)   
-
-def solveSpice(spice, mesh, lyr):
-  spice.finishSpiceNetlist()
-  proc= spice.runSpiceNetlist()
-  proc.wait()
-  spice.readSpiceRawFile(lyr, mesh)
-
-def solveSetup(solv):
-  solv.debug             = False
-  solv.useSpice          = False
-  solv.aztec             = False
-  solv.amesos            = True
-  solv.eigen             = False 
+ 
 
 def Main():
-  lyr = Layers.Layers()
-  matls = Matls.Matls()
-  spice= Spice2D.Spice()
+  simConfigFile= ParseSimFile.ParseSimFile()
+  simConfigJSON= simConfigFile.exampleJSON()
+  simConfig= yaml.load(simConfigJSON)
   
+  lyr = Layers.Layers(simConfig['simulation_layers'])
+  matls = Matls.Matls(simConfig['layer_matl'])
+  mesh = Mesh2D.Mesh(simConfig['mesh'], lyr, matls)
+  solv = Solver2D.Solver(simConfig['solvers'], lyr, mesh)
+  solv.solveFlags(simConfig['solverFlags'])
+  solv.solve(lyr, mesh, matls)
+
+    
+    
+    
+    
+    
+
+    
   showPlots= True
-  useTinyProblem= False
-  usePNGInput= False
-
-  mesh = definePNGProblem("Layout4.png", lyr, matls)
-  if useTinyProblem:
-    mesh = defineTinyProblem(lyr, matls)
-  else:
-    mesh = defineScalableProblem(lyr, matls, 20, 20)
-
-  mesh.mapMeshToSolutionMatrix(lyr)
-
-  solv = Solver2D.Solver(lyr, mesh)
-  solveSetup(solv)
-  
-  if (solv.useSpice == True):
-    solv.spiceSim= Spice2D.Spice()
-  
-  solv.initDebug()
-  solv.loadMatrix(lyr, mesh, matls, spice)
-  
-  if (solv.eigen == True):
-    print "Solving for eigenvalues"
-    solv.solveEigen()
-    print "Finished solving for eigenvalues"
-  
-  if (solv.useSpice == True):
-    solveSpice(spice, mesh, lyr)
-    
-  if (solv.aztec == True):
-    solveAztecOO(solv, mesh, lyr)
-    
-  if (solv.amesos == True):
-    solveAmesos(solv, mesh, lyr)
-  
-  if (solv.debug == True):
-    webpage = MatrixDiagnostic.MatrixDiagnosticWebpage(solv, lyr, mesh)
-    webpage.createWebPage()
-  
   if (showPlots == True):
     plots= interactivePlot.interactivePlot(lyr, mesh)
     plots.plotTemperature()

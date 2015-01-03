@@ -1,29 +1,46 @@
-class Matls:
-  def __init__(self):
-    self.fr4Cond    = 1.0
-    self.copperCond = 401.0
-    
-    self.boundCond = 1000.0
-    
-    self.fr4Thickmil = 59.0
-    self.copperThickmil = 1.2
-    self.fr4Thick= self.convertMilToMeters(self.fr4Thickmil)
-    self.copperThick= self.convertMilToMeters(self.copperThickmil)
-    print "Copper Thickness, meters: " + str(self.copperThick)
-    print "FR4 Thickness, meters:" + str(self.fr4Thick)
+import Units
 
-    self.fr4ResistancePerSquare=  1.0 / (self.fr4Cond * self.fr4Thick)
-    self.copperResistancePerSquare=  1.0 / (self.copperCond * self.copperThick)
-    print "Copper layer thermal resistance per square: " + str(self.copperResistancePerSquare)
-    print "FR4 layer thermal resistance per square: " + str(self.fr4ResistancePerSquare)
+class Matls:
+
+  def __init__(self, config):
+    self.loadConfig(config)
+    return
+
+  def loadConfig(self, config):
+    units= Units.Units()
+    for matl in config:
+      matlName= matl['name']
+      matlThickness= units.convertToMeters(matl['thickness'], matl['thickness_unit'])
+      if (matl['xcond_unit'] == 'W/mK'):
+        matlCond= matl['xcond']
+      else:
+        print 'Unknown units for material conductivity: ' + str(matl['xcond_unit'])
+        matlCond= float(NaN)
+      matlResistanceProp= matlName + 'ResistancePerSquare'
+      matlCondProp= matlName + 'Cond'
+      self.__dict__[matlResistanceProp]= 1.0 / (matlCond * matlThickness)
+      self.__dict__[matlCondProp]= matlCond
+      print matlResistanceProp + ": " + str(self.__dict__[matlResistanceProp])
+      print matlCondProp + ": " + str(matlCond)
     
   def convertMilToMeters(self, mil):
     inches= mil / 1000.0 
     centimeters= inches * 2.54
     meters = centimeters / 100.0 
     return meters
+  
+  def reportConfig(self, config):
+    lines= []
+    for matl in config:
+      lines.append('Material: ' + matl['name'])
+      for key in matl.keys():
+        lines.append('  ' + key + ' ' + str(matl[key]))
+      lines.append('---------')
+    out= "\n".join(lines)
+    return out  
     
-    """ 
+  def helpString(self):  
+    return """ 
     
         Cu thermal conductivity: 401 W/(m degK)
         Cu thickness 1.2mil
@@ -35,3 +52,20 @@ class Matls:
     Need units conversion, and to account for thicknesses of layers.
     
     """
+  
+  """
+  "layer_matl": [
+    { "name": "fr4",
+      "type": "solid",
+      "xcond": 1.0,
+      "xcond_unit": "W/mK",
+      "ycond": 1.0,
+      "ycond_unit": "W/mK",
+      "thickness": 59.0,
+      "thickness_unit": "mil"
+    },  
+  """
+  
+  """ TODO: Thicknesses could come from layerMatlProps, 
+  which would be a new class that has per-layer material properties. 
+  """

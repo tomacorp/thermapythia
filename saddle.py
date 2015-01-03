@@ -130,9 +130,9 @@ def Main():
   solv = Solver2D.Solver(lyr, mesh)
   solv.debug             = True
   solv.useSpice          = False
-  solv.aztec             = True
-  solv.amesos            = False
-  solv.eigen             = False  
+  solv.useAztec          = True
+  solv.useAmesos         = False
+  solv.useEigen          = False  
   
   if (solv.useSpice == True):
     solv.spiceSim= Spice2D.Spice()
@@ -140,7 +140,7 @@ def Main():
   solv.initDebug()
   solv.loadMatrix(lyr, mesh, matls, spice)
   
-  if (solv.eigen == True):
+  if (solv.useEigen == True):
     print "Solving for eigenvalues"
     solv.solveEigen()
     print "Finished solving for eigenvalues"
@@ -148,12 +148,12 @@ def Main():
   if (solv.useSpice == True):
     solveSpice(spice, mesh, lyr)
     
-  if (solv.aztec == True):
+  if (solv.useAztec == True):
     solv.solveMatrixAztecOO(400000)
     solv.loadSolutionIntoMesh(lyr, mesh)
     solv.checkEnergyBalance(lyr, mesh) 
     
-  if (solv.amesos == True):
+  if (solv.useAmesos == True):
     solveAmesos(solv, mesh, lyr)
   
   if (solv.debug == True):

@@ -1,0 +1,50 @@
+format 2D_thermal_simulation
+
+  section layers
+    double 7
+      0 iso
+      1 heat
+      2 resis
+      3 deg
+      4 flux
+      5 isodeg
+      6 spicedeg
+    int 3
+      0 isonode
+      1 isoflag
+      2 spicenodenum
+  end layers
+ 
+  section matls
+    fr4
+      xcond 1.0 W/mK
+      ycond 1.0 W/mK
+      thick 59.0 mil
+    end fr4
+    Cu
+      xcond 401.0 W/mK
+      ycond 401.0 W/mK
+      thick 1.2 mil
+    end Cu
+  end matls
+
+  section problem
+    title Tiny 2D thermal problem
+    problem builtin tiny
+    * problem builtin scalable 5 5
+    * problem png "Layout4.png"
+  end problem
+
+  section solver
+    solver spice
+    * solver eigen
+    * solver iterative
+    solver direct
+  end solver
+
+  section output
+    output plots
+    output profile
+  end output
+
+end 2D_thermal_simulation

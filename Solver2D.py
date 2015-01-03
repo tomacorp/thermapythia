@@ -1,6 +1,8 @@
 import numpy as np
 from collections import Counter
 from PyTrilinos import Epetra, AztecOO, Anasazi, Amesos
+import Spice2D
+import MatrixDiagnostic
 
 class Solver:
   """
@@ -40,7 +42,7 @@ class Solver:
     Also count the number of boundary sources, which is the size of the D matrix.   
   """
 
-  def __init__(self, lyr, mesh):
+  def __init__(self, config, lyr, mesh):
     """
     define the communicator (Serial or parallel, depending on your configure
     line), then initialize a distributed matrix of size 4. The matrix is empty,
@@ -82,6 +84,7 @@ class Solver:
     # Without it, the data structure is hard to access.
     self.bs= []
     self.x= []    
+    self.solveSetup(config)
     
   def initDebug(self):
     """
@@ -176,7 +179,7 @@ class Solver:
             print "Setting boundaryNode body", nodeThis, " at ",x,",",y,", to temp", mesh.field[x, y, lyr.isodeg]
           GNode = self.addIsoNode(lyr, mesh, spice, matls, nodeThis, x, y, GNode)
         
-        if (self.aztec == True) or (self.amesos == True):
+        if (self.useAztec == True) or (self.useAmesos == True):
           # 6.074s
           self.loadBodyA(nodeThis, GNode, GRight, nodeRight, GUp, nodeUp, nodeLeft, GLeft, GDown, nodeDown)
           
@@ -674,7 +677,9 @@ class Solver:
     return totalNodeCount        
             
             
-# Below this point the methods don't know if the mesh is 2D            
+# Below this point the methods don't know if the mesh is 2D  
+# This module is too long, and could be broken into loaders and solvers.
+# The solvers should be shared with 3D code, also.
             
             
   def nonzeroMostCommonCount(self):
@@ -902,3 +907,68 @@ class Solver:
       print "dirichlet End Node= ", dirichletEndNode
     return temperatureStartNode, temperatureEndNode, dirichletStartNode, dirichletEndNode
 
+  def solveAmesos(solv, mesh, lyr):
+    solv.solveMatrixAmesos()
+    solv.loadSolutionIntoMesh(lyr, mesh)
+    solv.checkEnergyBalance(lyr, mesh)
+    
+  def solveAztecOO(solv, mesh, lyr):
+    solv.solveMatrixAztecOO(400000)
+    solv.loadSolutionIntoMesh(lyr, mesh)
+    solv.checkEnergyBalance(lyr, mesh)   
+  
+  def solveSetup(solv, config): 
+    solv.useSpice          = False
+    solv.useAztec          = False
+    solv.useAmesos         = False
+    solv.useEigen          = False 
+    
+    foundSolver= 0
+    for solver in config:
+      if solver['active'] == 1:
+        if (solver['solverName'] == "Eigen"):
+          solv.useEigen = True
+        if (solver['solverName'] == "Aztec"):
+          solv.useAztec = True
+        if (solver['solverName'] == "Amesos"):
+          solv.useAmesos = True  
+        if (solver['solverName'] == "Spice"):
+          solv.useSpice = True
+    
+  def solveFlags(solv, config):
+    solv.debug = False
+    for solver in config:
+      solv.__dict__[solver['flag']] = solver['setting']
+
+  def solveSpice(solv, spice, mesh, lyr):
+    spice.finishSpiceNetlist()
+    proc= spice.runSpiceNetlist()
+    proc.wait()
+    spice.readSpiceRawFile(lyr, mesh)       
+      
+  def solve(solv, lyr, mesh, matls):
+    if (solv.useSpice == True):
+      spice= Spice2D.Spice()
+    else:
+      spice= None
+    
+    solv.initDebug()
+    solv.loadMatrix(lyr, mesh, matls, spice)
+    
+    if (solv.useEigen == True):
+      print "Solving for eigenvalues"
+      solv.solveEigen()
+      print "Finished solving for eigenvalues"
+    
+    if (solv.useSpice == True):
+      solv.solveSpice(spice, mesh, lyr)
+      
+    if (solv.useAztec == True):
+      solv.solveAztecOO(mesh, lyr)
+      
+    if (solv.useAmesos == True):
+      solv.solveAmesos(mesh, lyr)  
+      
+    if (solv.debug == True):
+      webpage = MatrixDiagnostic.MatrixDiagnosticWebpage(solv, lyr, mesh)
+      webpage.createWebPage()      

@@ -1,0 +1,3 @@
+pip install twisted
+easy_install jsonpickle
+pip install PyYAML

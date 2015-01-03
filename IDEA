@@ -1,0 +1,21 @@
+Tom Anderson
+Thu Jan  1 00:46:41 PST 2015
+
+A stackup with a layer order is really just a model.
+It can be edited as such, and have a name like a regular model.
+It can refer to external or internal models such as materials.
+
+What is different from a spice model is that it probably has some sort
+of file order that determines layer order. But this could also be
+done with indexes (which don't have to been evenly spaced integers).
+
+The important things are:
+  Have a clean ascii representation that is easy to human edit and machine parse.
+  Draw a good picture of the stackup. Use SVG.
+  Be expressive enough to hold all the needed data.
+
+Of lesser importance:
+  Have a modern user interface with the latest jqueryui, json-editor or whatever technology.
+
+Other models such as resistors are similar to stackups.
+They are needed to create clean parametric representations of a family of parts.

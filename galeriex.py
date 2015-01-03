@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 #
 # Derived from PyTrilinosExample.py (SAND Number: 2010-7675 C)
-# An example python script
+# An example python script 
 # that demonstrates the use of PyTrilinos to solve a simple 2D Laplace problem
 # on the unit square with Dirichlet boundary conditions, capable of parallel
 # execution.
