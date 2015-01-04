@@ -33,59 +33,51 @@
 # 826M
 # 26 seconds to 108 seconds by adding Xyce.
 
-from PIL import Image, ImageDraw
 import subprocess, os
 import pstats
+import StringIO
 import cProfile
-import numpy as np
 import Layers
 import Matls
 import Mesh2D
 import Solver2D
-import Spice2D
 import ParseSimFile
-import MatrixDiagnostic
 import interactivePlot
 import yaml
 
-  
- 
-
-def Main():
-  simConfigFile= ParseSimFile.ParseSimFile()
-  simConfigJSON= simConfigFile.exampleJSON()
-  simConfig= yaml.load(simConfigJSON)
-  
+def Main(simConfig):
   lyr = Layers.Layers(simConfig['simulation_layers'])
   matls = Matls.Matls(simConfig['layer_matl'])
+  # TODO: Consider refactoring to split mesh into geometry and mesh
   mesh = Mesh2D.Mesh(simConfig['mesh'], lyr, matls)
   solv = Solver2D.Solver(simConfig['solvers'], lyr, mesh)
   solv.solveFlags(simConfig['solverFlags'])
-  solv.solve(lyr, mesh, matls)
+  solv.solve(lyr, mesh, matls) 
+  plots= interactivePlot.interactivePlot(simConfig['outputs'], solv, lyr, mesh)
 
-    
-    
-    
-    
-    
 
-    
-  showPlots= True
-  if (showPlots == True):
-    plots= interactivePlot.interactivePlot(lyr, mesh)
-    plots.plotTemperature()
-    if (solv.useSpice == True):
-      plots.plotSpicedeg()
-      plots.plotLayerDifference(lyr.spicedeg, lyr.deg)
-    plots.show()
 
-showProfile= True
-if showProfile == True:
-  cProfile.run('Main()', 'restats')
-  p = pstats.Stats('restats')
-  p.sort_stats('cumulative').print_stats(30)
+simConfigFile= ParseSimFile.ParseSimFile()
+simConfigJSON= simConfigFile.exampleJSON()
+simConfig= yaml.load(simConfigJSON)
+
+if simConfig['showProfile'] == 1:
+  cProfile.run('Main(simConfig)', 'restats')
+  
+  # TODO: Move this code into Profile.py and 
+  # make methods for extracting the data for use in reports.
+  # High level data such as overall time and detailed function data.
+  
+  stream = StringIO.StringIO()
+  stats = pstats.Stats('restats', stream=stream)
+  stats.sort_stats('cumulative').dump_stats('restats')
+  stats.print_stats()
+  profileFile = open(simConfig['profileFilename'], "w")
+  profileFile.write(stream.getvalue())
+  profileFile.close()
+
 else:
-  Main()
+  Main(simConfig)
 
 # Times without printing much.
 # Printing overhead is probably about 10% in this case.

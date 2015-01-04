@@ -2,12 +2,36 @@ import matplotlib.pyplot as plt
 import Matls
 import Layers
 
+"""
+TODO: 
+
+Integrate the plots with the debug web page.
+Use the titles on the plots
+
+""" 
+
 class interactivePlot:
-  def __init__(self, lyr, mesh):
+  def __init__(self, config, solv, lyr, mesh):
     self.lyr     = lyr
     self.mesh    = mesh
     self.interative = True
     self.png = True
+    self.loadConfig(config)
+    if (self.showPlots == True):
+      self.simplePlot(solv, lyr)
+    return
+
+  def loadConfig(self, config):
+    for output in config:
+      self.__dict__[output['name']]= output['active']    
+    return
+  
+  def simplePlot(self, solv, lyr):
+    self.plotTemperature()
+    if (solv.useSpice == True):
+      self.plotSpicedeg()
+      self.plotLayerDifference(lyr.spicedeg, lyr.deg)
+    self.show()  
 
   def plotSolution(self):
     """

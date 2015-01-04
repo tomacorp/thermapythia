@@ -98,14 +98,15 @@ class ParseSimFile:
 
   "outputs": [
     {
-      "name": "plots",
+      "name": "showPlots",
       "active": 1
     },
-    {
-      "name": "profile",
-      "active": 1
-    }
-  ]
+  ],
+  
+
+  "showProfile": 1,
+  "profileFilename": "profile.txt"
+
 }
 
 """  
