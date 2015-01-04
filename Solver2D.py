@@ -107,6 +107,10 @@ class Solver:
     A is the problem matrix
     Modified nodal analysis formulation is from:
     http://www.swarthmore.edu/NatSci/echeeve1/Ref/mna/MNA2.html
+    
+    This needs to change to a pure nodal implementation without voltage sources.
+    The voltage sources cause the matrix to be a saddle point matrix, which is
+    bad for iterative amd eigen-value solvers.
     """
     self.isoIdx = mesh.nodeGFcount
     print "Starting iso nodes at ", self.isoIdx
@@ -131,6 +135,8 @@ class Solver:
     b is the RHS, which are current sources for injected heat.
     """
     # Add the injected heat sources.
+    # NORTON equivalent heat sources need to be accounted for here.
+    # Just add the mesh.field entries to the b instead of setting them.
     for x in range(0, mesh.width):
       for y in range(0, mesh.height):
         nodeThis= mesh.getNodeAtXY(x, y)
@@ -620,13 +626,28 @@ class Solver:
       RRight= 1.0/GRight
       spice.appendSpiceNetlist("RBLCR" + thisSpiceNode + " " + thisSpiceNode + " " + spiceNodeRight + " " + str(RRight) + "\n")
 
+  # NORTON: Remove extra node initialization from here.
+  # There are fewer nodes in the NORTON version.
+  # There is no isonode layer in the NORTON.
   def addIsoNode(self, lyr, mesh, spice, matls, nodeThis, x, y, GNode):
     GNode = GNode + matls.boundCond
+    # boundaryNode is not generated, so this variable is not in NORTON
     boundaryNode = mesh.ifield[x, y, lyr.isonode]
+    
+    # In NORTON the isoIdx does not position the self.b row, instead it is just the node at x, y
+    # that gets incremented by the amount of current in the boundary,
+    # which is mesh.field[x, y, lyr.isodeg] * matls.boundCond
+    # Or, maybe it needs to go in a local array and all of this is taken care of at once.
+    # There may be problems retrieving values from self.b due to the complexity of the Trilinos map,
+    # which can go across mpi boundaries.
     self.b[self.isoIdx + mesh.nodeDcount]= mesh.field[x, y, lyr.isodeg]
     self.A[nodeThis, nodeThis]= GNode
+
+    # This is the B and C matrix, not needed in NORTON
     self.A[boundaryNode, self.isoIdx + mesh.nodeDcount]= 1.0
     self.A[self.isoIdx + mesh.nodeDcount, boundaryNode]= 1.0
+    
+    # There is no diagonal term on the boundary conductivity, so these are not in NORTON
     self.A[boundaryNode, boundaryNode]= matls.boundCond
     self.A[boundaryNode, nodeThis]= -matls.boundCond
     self.A[nodeThis, boundaryNode]= -matls.boundCond
@@ -646,12 +667,24 @@ class Solver:
       print "  row for source vector 1 multiplier= ", self.isoIdx + mesh.nodeDcount
     if self.useSpice == True:
       thisSpiceNode=   "N" + str(x)   + self.s + str(y)
-      thisIsoSource=   "V" + thisSpiceNode
+      
+      # Norton equivalent boundary resistance and current source.
+      if self.useNorton == True:
+        thisIsoSource=   "I" + thisSpiceNode
+      else:
+        thisIsoSource=   "V" + thisSpiceNode
+      
       thisBoundaryNode=  "NDIRI" + self.s + str(x) + self.s + str(y)
       thisBoundaryResistor=  "RDIRI" + self.s + str(x) + self.s + str(y)
       thisBoundaryResistance= 1.0/matls.boundCond
-      spice.appendSpiceNetlist(thisIsoSource + " " + thisBoundaryNode + " 0 DC " + str(mesh.field[x, y, lyr.isodeg]) + "\n")
-      spice.appendSpiceNetlist(thisBoundaryResistor + " " + thisSpiceNode + " " + thisBoundaryNode + " " + str(thisBoundaryResistance) + "\n")
+      
+      if self.useNorton == True:
+        thisBoundaryCurrent= mesh.field[x, y, lyr.isodeg]/thisBoundaryResistance
+        spice.appendSpiceNetlist(thisIsoSource + " 0 " + thisSpiceNode + " DC " + str(thisBoundaryCurrent) + "\n")
+        spice.appendSpiceNetlist(thisBoundaryResistor + " " + thisSpiceNode + " 0 " + str(thisBoundaryResistance) + "\n")
+      else:  
+        spice.appendSpiceNetlist(thisIsoSource + " " + thisBoundaryNode + " 0 DC " + str(mesh.field[x, y, lyr.isodeg]) + "\n")
+        spice.appendSpiceNetlist(thisBoundaryResistor + " " + thisSpiceNode + " " + thisBoundaryNode + " " + str(thisBoundaryResistance) + "\n") 
    
     self.isoIdx = self.isoIdx + 1
     self.BoundaryNodeCount += 1
@@ -673,6 +706,7 @@ class Solver:
     totalNodeCount(Solver self)
     This is used for matrix diagnostic output
     """
+    # For NORTON the self.BoundaryNodeCount will need to be removed.
     totalNodeCount = self.BodyNodeCount + self.TopEdgeNodeCount + self.RightEdgeNodeCount + self.BottomEdgeNodeCount + self.LeftEdgeNodeCount + self.TopLeftCornerNodeCount + self.TopRightCornerNodeCount + self.BottomRightCornerNodeCount + self.BottomLeftCornerNodeCount + self.BoundaryNodeCount
     return totalNodeCount        
             
@@ -881,6 +915,8 @@ class Solver:
     powerOut = 0
     for n in range(temperatureStartNode, temperatureEndNode):
       powerIn = powerIn + self.b[n]
+    # For NORTON equivalent formulation this will need to change. The dirichletNodes do not exist.
+    # Power out is the current in the resistors that is not due to the boundary current source.
     for n in range(dirichletStartNode, dirichletEndNode):
       powerOut = powerOut + self.x[n]
     print "Power In = ", powerIn
@@ -898,6 +934,7 @@ class Solver:
     """
     temperatureStartNode= 0
     temperatureEndNode= mesh.solveTemperatureNodeCount()
+    # For NORTON equivalent formulation these dirichlet nodes will not exist.
     dirichletStartNode= temperatureEndNode + mesh.nodeDcount
     dirichletEndNode= dirichletStartNode + mesh.boundaryDirichletNodeCount(lyr)
     if self.debug == True:
@@ -934,26 +971,24 @@ class Solver:
           solv.useAmesos = True  
         if (solver['solverName'] == "Spice"):
           solv.useSpice = True
+          solv.spice= Spice2D.Spice(solver['simbasename'])
+    if (solv.useSpice == False):
+      solv.spice= None    
     
   def solveFlags(solv, config):
     solv.debug = False
     for solver in config:
       solv.__dict__[solver['flag']] = solver['setting']
 
-  def solveSpice(solv, spice, mesh, lyr):
-    spice.finishSpiceNetlist()
-    proc= spice.runSpiceNetlist()
+  def solveSpice(solv, mesh, lyr):
+    solv.spice.finishSpiceNetlist()
+    proc= solv.spice.runSpiceNetlist()
     proc.wait()
-    spice.readSpiceRawFile(lyr, mesh)       
+    solv.spice.readSpiceRawFile(lyr, mesh)       
       
   def solve(solv, lyr, mesh, matls):
-    if (solv.useSpice == True):
-      spice= Spice2D.Spice()
-    else:
-      spice= None
-    
     solv.initDebug()
-    solv.loadMatrix(lyr, mesh, matls, spice)
+    solv.loadMatrix(lyr, mesh, matls, solv.spice)
     
     if (solv.useEigen == True):
       print "Solving for eigenvalues"
@@ -961,7 +996,7 @@ class Solver:
       print "Finished solving for eigenvalues"
     
     if (solv.useSpice == True):
-      solv.solveSpice(spice, mesh, lyr)
+      solv.solveSpice(mesh, lyr)
       
     if (solv.useAztec == True):
       solv.solveAztecOO(mesh, lyr)

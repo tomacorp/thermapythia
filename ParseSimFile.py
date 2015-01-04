@@ -3,6 +3,7 @@ import yaml
 
 class ParseSimFile:
 
+# NORTON isonode layer will be eliminated
   def exampleJSON(self):
     js= """
 {
@@ -59,7 +60,7 @@ class ParseSimFile:
       "title":"Scalable 2D thermal problem",
       "type":"scalable",
       "xsize":5,
-      "ysize":3,
+      "ysize":5,
       "active":1
     },
     {
@@ -74,13 +75,18 @@ class ParseSimFile:
     {
       "flag": "debug",
       "setting": 1
+    },
+    {
+      "flag": "useNorton",
+      "setting": 1
     }
   ],
   
   "solvers": [
     {
       "solverName": "Spice",
-      "active": 1
+      "active": 1,
+      "simbasename": "norton"
     },
     {
       "solverName": "Eigen",

@@ -10,9 +10,11 @@ class Mesh:
   
   Counts the number of cells and the number of Dirichlet boundary conditions.
   This is required for sizing the Pytrilinos matrix before loading it.
+  
   These Dirichlet count is needed because the boundaries also have an associated thermal
   resistance between the boundary and the square mesh.
   This resistance results in an additional node for every boundary square.
+  For the NORTON equivalent this will not be required.
   
   Creates a bidirectional mapping from the integer X,Y 2D space to the 1D node list
   that is used for solving the sparse matrix.
@@ -28,6 +30,7 @@ class Mesh:
     """
     self.nodeGcount = 0
     self.nodeDcount = 0
+    # NORTON: nodeCount is still needed. The other counters should not be needed.
     self.nodeCount = 0
     self.nodeGBcount = 0
     self.nodeGFcount = 0 
@@ -58,8 +61,10 @@ class Mesh:
     self.field[:, :, lyr.flux]  = 0.0
     self.field[:, :, lyr.isodeg] = 25.0
     self.ifield[:, :, lyr.isoflag] = 0
+    # There will be no lyr.isonode in NORTON formulation
     self.ifield[:, :, lyr.isonode] = 0     
 
+  # For NORTON this is the same as self.nodeCount
   def solveTemperatureNodeCount(self):
     """ 
     solveTemperatureNodeCount(Mesh self)
@@ -70,6 +75,7 @@ class Mesh:
     count= self.getNodeAtXY(self.width - 1, self.height - 1) + 1
     return count
 
+  # For the NORTON this will return zero, or not be used at all.
   def boundaryDirichletNodeCount(self, lyr):
     """
     boundaryDirichletNodeCount(Mesh self, int lyr)
@@ -126,12 +132,22 @@ class Mesh:
     the Dirichlet boundary condition to the mesh. This means that the
     voltage source creates another voltage node.
     """
+    
+    # in NORTON this can be a simple multiply, no need to count.
     self.nodeGcount = self.getNodeAtXY(self.width - 1, self.height - 1)
+    # in NORTON this should be the final answer and there is no need for the other counts.
     self.nodeCount = self.nodeGcount + 1
+    
+    
     self.nodeGFcount = self.nodeCount
     # Find the number of nodes in the submatrices
+
     for x in range(0, self.width):
       for y in range(0, self.height):
+        # In the NORTON formulation there will be no:
+        #   lyr.isonode  - there will still be lyr.isoflag and lyr.isodeg.
+        #   lyr.nodeGBcount (boundary count?)
+        #   self.nodeDcount
         if (self.ifield[x, y, lyr.isoflag] == 1):
           # print "Mapping mesh isothermal node at (x, y) = (", x, ", ", y, ")"
           # Every boundary condition gets a new node

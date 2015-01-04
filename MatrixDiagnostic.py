@@ -31,6 +31,7 @@ class MatrixDiagnosticWebpage:
   
     temperatureStartNode= 0
     temperatureEndNode= self.mesh.solveTemperatureNodeCount()
+    # For the NORTON formulation these will not be needed.
     dirichletStartNode= temperatureEndNode
     dirichletEndNode= dirichletStartNode + self.mesh.boundaryDirichletNodeCount(self.lyr)
   
@@ -40,6 +41,7 @@ class MatrixDiagnosticWebpage:
       if ((n >= temperatureStartNode) and (n < temperatureEndNode)):
         nodeType= 'matl'
       else:
+        # For the NORTON formulation these diri nodes will not be needed. 
         if ((n >= dirichletStartNode) and (n < dirichletEndNode)):
           nodeType = 'diri'
       rowType = rowType + "<td>" + nodeType + "</td>"

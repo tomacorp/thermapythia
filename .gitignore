@@ -12,9 +12,8 @@
 *.geo
 *.png
 *.mm
-therm.txt
-therm.asc
-therm.cki
+*.txt
+*.asc
+*.cki
 x
 restats
-profile.txt

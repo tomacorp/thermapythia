@@ -1,7 +1,7 @@
 import subprocess, os
 class Spice:
-  def __init__(self):
-    self.simbasename= 'therm'
+  def __init__(self, basename):
+    self.simbasename= basename
     self.ckiname= self.simbasename + '.cki'
     self.ascname= self.simbasename + '.asc'
     self.txtname= self.simbasename + '.txt'
