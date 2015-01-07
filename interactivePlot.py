@@ -6,7 +6,7 @@ import Layers
 TODO: 
 
 Integrate the plots with the debug web page.
-Use the titles on the plots
+Use the titles from the config on the plots
 
 """ 
 
@@ -14,7 +14,7 @@ class interactivePlot:
   def __init__(self, config, solv, lyr, mesh):
     self.lyr     = lyr
     self.mesh    = mesh
-    self.interative = True
+    self.interactive = False
     self.png = True
     self.loadConfig(config)
     if (self.showPlots == True):
@@ -31,7 +31,8 @@ class interactivePlot:
     if (solv.useSpice == True):
       self.plotSpicedeg()
       self.plotLayerDifference(lyr.spicedeg, lyr.deg)
-    self.show()  
+    if self.interactive == True:
+      self.show()  
 
   def plotSolution(self):
     """
@@ -61,7 +62,7 @@ class interactivePlot:
     quad4= plt.pcolormesh(self.mesh.xr, self.mesh.yr, z5)
     plt.colorbar()
     plt.title('Nodes with Dirichlet boundary conditions map')
-    if self.interative == True:
+    if self.interactive == True:
       plt.draw()
     if self.png == True:
       plt.savefig('thermpypng/dirichlet_map.png')
@@ -77,7 +78,7 @@ class interactivePlot:
     quad4= plt.pcolormesh(self.mesh.xr, self.mesh.yr, z4)
     plt.colorbar()
     plt.title('Heat sources map')
-    if self.interative == True:
+    if self.interactive == True:
       plt.draw()
     if self.png == True:
       plt.savefig('thermpypng/heat_sources_map.png')
@@ -94,7 +95,7 @@ class interactivePlot:
     quad3= plt.pcolormesh(self.mesh.xr, self.mesh.yr, z3)
     plt.colorbar()
     plt.title('Dirichlet boundary conditions temperature map')
-    if self.interative == True:
+    if self.interactive == True:
       plt.draw()
     if self.png == True:
       plt.savefig('thermpypng/dirichlet_temperature_map.png')
@@ -110,7 +111,7 @@ class interactivePlot:
     quad2= plt.pcolormesh(self.mesh.xr, self.mesh.yr, z2)
     plt.colorbar()
     plt.title('AztecOO heat map')
-    if self.interative == True:
+    if self.interactive == True:
       plt.draw()
     if self.png == True:
       plt.savefig('thermpypng/aztecOO_heat_map.png')
@@ -126,7 +127,7 @@ class interactivePlot:
     quad1= plt.pcolormesh(self.mesh.xr, self.mesh.yr, z1)
     plt.colorbar()
     plt.title('Thermal resistance map')
-    if self.interative == True:
+    if self.interactive == True:
       plt.draw()
     if self.png == True:
       plt.savefig('thermpypng/thermal_res_map.png')
@@ -142,8 +143,11 @@ class interactivePlot:
     quad1= plt.pcolormesh(self.mesh.xr, self.mesh.yr, z1)
     plt.colorbar()
     plt.title('Spice heat map')
-    plt.draw() 
-    plt.savefig('thermpypng/spice_heat_map.png')
+    if self.interactive == True:
+      print "Interactive plot for Spicedeg"
+      plt.draw() 
+    if self.png == True:
+      plt.savefig('thermpypng/spice_heat_map.png')
     
   def plotLayerDifference(self, layer1, layer2):
     """
@@ -158,16 +162,21 @@ class interactivePlot:
     quad1= plt.pcolormesh(self.mesh.xr, self.mesh.yr, z3)
     plt.colorbar()
     plt.title('Difference heat map')
-    plt.draw()
-    plt.savefig('thermpypng/difference_heat_map.png')
+    if self.interactive == True:
+      plt.draw() 
+      print "Interactive plot for layer difference"
+    if self.png == True:
+      plt.savefig('thermpypng/difference_heat_map.png')
 
 def main():
   print "This is a test program for interactivePlot. It draws a graph on the screen."
   import Layers
   import Mesh2D
-  lyr = Layers.Layers()
-  matls = Matls.Matls()  
-  mesh = Mesh2D.Mesh(3, 3, lyr, matls)
+  lyr = Layers.Layers([{ "index": 0, "type":"double", "name": "spicedeg" }])
+  matls = Matls.Matls([{ "name": "fr4","type": "solid","xcond": 1.0,"xcond_unit": "W/mK",
+                         "ycond": 1.0,"ycond_unit": "W/mK","thickness": 59.0,
+                         "thickness_unit": "mil"}])  
+  mesh = Mesh2D.Mesh([{"title":"Tiny 2D thermal problem","type":"tiny","active":1}], lyr, matls)
   
   for x in range(0,3):
     for y in range(0,3):
@@ -175,7 +184,7 @@ def main():
 
   plots= interactivePlot(lyr, mesh)
   plots.png= True
-  plots.interative= True
+  plots.interactive= True
   plots.plotSpicedeg() 
   plots.show()
 

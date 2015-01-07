@@ -44,6 +44,7 @@ import Solver2D
 import ParseSimFile
 import interactivePlot
 import yaml
+import Http
 
 def Main(simConfig):
   lyr = Layers.Layers(simConfig['simulation_layers'])
@@ -52,9 +53,14 @@ def Main(simConfig):
   mesh = Mesh2D.Mesh(simConfig['mesh'], lyr, matls)
   solv = Solver2D.Solver(simConfig['solvers'], lyr, mesh)
   solv.solveFlags(simConfig['solverFlags'])
-  solv.solve(lyr, mesh, matls) 
+  solv.solve(simConfig['solverDebug'], lyr, mesh, matls) 
   plots= interactivePlot.interactivePlot(simConfig['outputs'], solv, lyr, mesh)
-
+  
+  
+  # TODO: Generate web pages for static (not interactive) plots
+  http = Http.Http(simConfig)  
+  # This works from the command line to open a page:
+  # open "http://localhost:8880/htmlfile/diri_AxRHS.html"
 
 
 simConfigFile= ParseSimFile.ParseSimFile()

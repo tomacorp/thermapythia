@@ -3,7 +3,8 @@ import yaml
 
 class ParseSimFile:
 
-# NORTON isonode layer will be eliminated
+# NORTON isonode layer will be eliminated.
+# But NORTON with holes will need another layer.
   def exampleJSON(self):
     js= """
 {
@@ -59,7 +60,7 @@ class ParseSimFile:
     {
       "title":"Scalable 2D thermal problem",
       "type":"scalable",
-      "xsize":5,
+      "xsize":6,
       "ysize":5,
       "active":1
     },
@@ -111,7 +112,18 @@ class ParseSimFile:
   
 
   "showProfile": 1,
-  "profileFilename": "profile.txt"
+  "profileFilename": "profile.txt",
+  
+  "solverDebug":
+  {
+    "debugWebPage": "result.html"
+  },
+  
+  "http": {
+    "httpPort": 8880,
+    "useHttp": 1
+  }
+  
 
 }
 
@@ -125,10 +137,8 @@ def Main():
   print str(x)
   
   simConfig= ParseSimFile()
-  jsonStr= simConfig.json()
-  print jsonStr
-  
-  # js= json.loads(jsonStr)
+  jsonStr= simConfig.exampleJSON()
+
   js= yaml.load(jsonStr)
   print str(js)
   print str(js['outputs'][0]['name'])

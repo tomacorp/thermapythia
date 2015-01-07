@@ -7,7 +7,7 @@ class MatrixDiagnosticWebpage:
     self.solver = solv
     self.lyr = lyr
     self.mesh = mesh
-    self.maxWebPageSize = 100
+    self.maxWebPageSize = 122
     
   def createWebPage(self):
     matrixSize= self.mesh.solveTemperatureNodeCount()
@@ -16,7 +16,7 @@ class MatrixDiagnosticWebpage:
       return
     print "Creating web page"
     np.set_printoptions(threshold='nan', linewidth=10000)
-    f= open('result.html', 'w')
+    f= open(self.solver.debugWebPage, 'w')
     self.webpage()
     f.write(self.html)
     f.close()  
@@ -95,6 +95,7 @@ class MatrixDiagnosticWebpage:
     counts += "<tr><td>Total NodeCount</td><td>" + str(self.solver.totalNodeCount()) + "</td></tr>"
     counts += "<tr><td>Matrix Size</td><td>" + str(self.solver.NumGlobalElements) + "</td></tr>"
   
+    # NORTON formulation will only need nodeCount
     counts += "Number of independent nodes in G matrix= " + str(self.mesh.nodeGcount) + "<br/>"
     counts += "Number of independent nodes in GF matrix= " + str(self.mesh.nodeGFcount) + "<br/>"
     counts += "Number of independent nodes in GB matrix= " + str(self.mesh.nodeGBcount) + "<br/>"
@@ -103,6 +104,7 @@ class MatrixDiagnosticWebpage:
     counts += "Most Common number of nonzero matrix entries per row= " + str(mostCommon) + "<br/>"
     counts = "<table>" + counts + "</table>"
     
+    # NORTON formulation documentation needs update
     # Description
     descr = """ 
     A matrix is in sections:

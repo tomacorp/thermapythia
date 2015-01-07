@@ -31,6 +31,10 @@ class Mesh:
     self.nodeGcount = 0
     self.nodeDcount = 0
     # NORTON: nodeCount is still needed. The other counters should not be needed.
+    # And nodeCount can be calculated with the method solveTemperatureNodeCount.
+    # Even though it is trivial for now, it would be better to use a loop and
+    # to create a lookup table of XY coordinates to node number. This way, holes
+    # and non-rectangular simulations can be handled in the future.
     self.nodeCount = 0
     self.nodeGBcount = 0
     self.nodeGFcount = 0 
@@ -89,6 +93,7 @@ class Mesh:
           count = count + 1
     return count
 
+  # For NORTON with holes these will need to be lookup tables.
   def getNodeAtXY(self, x, y):
     """
     getNodeAtXY(Mesh self, int x, int y)

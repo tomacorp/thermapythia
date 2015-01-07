@@ -1,8 +1,10 @@
 import numpy as np
 from collections import Counter
-from PyTrilinos import Epetra, AztecOO, Anasazi, Amesos
+from PyTrilinos import Epetra, AztecOO, Anasazi, Amesos, EpetraExt
 import Spice2D
 import MatrixDiagnostic
+import MatrixMarket as mm
+import MMHtml
 
 class Solver:
   """
@@ -86,7 +88,7 @@ class Solver:
     self.x= []    
     self.solveSetup(config)
     
-  def initDebug(self):
+  def initDebug(self, config):
     """
     initDebug(Solver self)
     Create a shadow matrix as a duplicate of A and a shadow RHS as duplicate of b.
@@ -95,6 +97,7 @@ class Solver:
     if self.debug == True:
       self.As = np.zeros((self.NumGlobalElements, self.NumGlobalElements), dtype = 'double')
       self.bs = np.zeros(self.NumGlobalElements)
+      self.debugWebPage= config['debugWebPage']
 
   def loadMatrix(self, lyr, mesh, matls, spice):
     """
@@ -137,9 +140,17 @@ class Solver:
     # Add the injected heat sources.
     # NORTON equivalent heat sources need to be accounted for here.
     # Just add the mesh.field entries to the b instead of setting them.
+    # If adding isn't possible due to mpi, keep track of them another way.
+    # Look up in iso layer to see if a Norton current source is needed.
+    # If it is, then add the current needed to maintain the temperature
+    # for the boundary conductance.
     for x in range(0, mesh.width):
       for y in range(0, mesh.height):
         nodeThis= mesh.getNodeAtXY(x, y)
+        # local variable with mesh.field[x, y, lyr.heat] current
+        # Check x,y for iso condition
+        #   If it exists, compute the current and add it to the local variable.
+        # set self.b[nodeThis] to the local variable
         self.b[nodeThis]= mesh.field[x, y, lyr.heat]
         if self.debug == True:
           self.bs[nodeThis]= mesh.field[x, y, lyr.heat]
@@ -640,6 +651,7 @@ class Solver:
     # Or, maybe it needs to go in a local array and all of this is taken care of at once.
     # There may be problems retrieving values from self.b due to the complexity of the Trilinos map,
     # which can go across mpi boundaries.
+    # The real problem is doing a thread-safe += operation across processors.
     self.b[self.isoIdx + mesh.nodeDcount]= mesh.field[x, y, lyr.isodeg]
     self.A[nodeThis, nodeThis]= GNode
 
@@ -665,6 +677,7 @@ class Solver:
       print "  node with thermal source attached= ", nodeThis
       print "  node for boundary source= ", boundaryNode
       print "  row for source vector 1 multiplier= ", self.isoIdx + mesh.nodeDcount
+      
     if self.useSpice == True:
       thisSpiceNode=   "N" + str(x)   + self.s + str(y)
       
@@ -916,7 +929,7 @@ class Solver:
     for n in range(temperatureStartNode, temperatureEndNode):
       powerIn = powerIn + self.b[n]
     # For NORTON equivalent formulation this will need to change. The dirichletNodes do not exist.
-    # Power out is the current in the resistors that is not due to the boundary current source.
+    # Power out is the current in the boundary resistors that are not due to the boundary current source.
     for n in range(dirichletStartNode, dirichletEndNode):
       powerOut = powerOut + self.x[n]
     print "Power In = ", powerIn
@@ -986,8 +999,8 @@ class Solver:
     proc.wait()
     solv.spice.readSpiceRawFile(lyr, mesh)       
       
-  def solve(solv, lyr, mesh, matls):
-    solv.initDebug()
+  def solve(solv, config, lyr, mesh, matls):
+    solv.initDebug(config)
     solv.loadMatrix(lyr, mesh, matls, solv.spice)
     
     if (solv.useEigen == True):
@@ -1006,4 +1019,25 @@ class Solver:
       
     if (solv.debug == True):
       webpage = MatrixDiagnostic.MatrixDiagnosticWebpage(solv, lyr, mesh)
-      webpage.createWebPage()      
+      webpage.createWebPage()  
+      mmPrefix= "diri_"
+      probFilename = mmPrefix + "A.mm"
+      rhsFilename = mmPrefix + "RHS.mm"
+      xFilename = mmPrefix + "x.mm"
+      htmlFilename = mmPrefix + "AxRHS.html"
+      #if options.verbose:
+          #print "Creating files " + probFilename + " " + rhsFilename + " " + xFilename
+      EpetraExt.RowMatrixToMatrixMarketFile(probFilename, solv.A)   
+      EpetraExt.MultiVectorToMatrixMarketFile(rhsFilename, solv.b)
+      EpetraExt.MultiVectorToMatrixMarketFile(xFilename, solv.x)
+      
+      MMHtmlWriter= MMHtml.MMHtml()
+      MMReaderRHS= mm.MatrixMarket()
+      MMRHS= MMReaderRHS.read(rhsFilename) 
+      
+      MMReaderX= mm.MatrixMarket()
+      MMX= MMReaderX.read(xFilename)     
+      
+      MMReaderMMA= mm.MatrixMarket()     
+      MMA= MMReaderMMA.read(probFilename)
+      MMHtmlWriter.writeHtml([MMA, MMX, MMRHS], htmlFilename)       
