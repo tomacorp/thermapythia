@@ -4,6 +4,7 @@ from twisted.web.static import File
 from twisted.internet import reactor
 from twisted.web.resource import NoResource
 from twisted.web import server, resource, static
+import subprocess, os
 
 import cgi
 from calendar import calendar
@@ -29,8 +30,6 @@ class FileContents(Resource):
     with open (self.filename, "r") as htmlFileHandle:
       fileContents= htmlFileHandle.read()
     return "<html><body><pre>%s</pre></body></html>" % (fileContents)
-
-
 
 class Calendar(Resource):
   def getChild(self, name, request):
@@ -70,52 +69,84 @@ class Stop(Resource):
     reactor.callFromThread(reactor.stop)
     
     
-# TODO: At some point this should be in a file, and also styled with CSS
+# TODO: The Index should be in a file, and also styled with CSS
     
     
 class Index(Resource):
+  
+  def __init__(self, config):
+    self.config= config
+    
   def render_GET(self, request):
-    return """<html><head><title>Main</title></head><body>
+    outputlist= ''
+    for png in self.config['outputs']['png']:
+      outputlist = outputlist + "<li><img src='thermpypng/" + png + "_heat_map.png' /></li>"
+    return """
+    <html>
+    <head><title>Thermonous</title></head>
+    <body>
     <ul>
     <li><a href="cal/2015">2015</a></li>
     <li><a href="stop">Stop</a></li>
     <li><a href="htmlfile/result.html">Matrix with diagnostics</a></li>
     <li><a href="htmlfile/diri_AxRHS.html">Matrix solution</a></li>
     <li><a href="thermpypng/aztecOO_heat_map.png">Saved bitmaps</a>
+    %s
     </ul>
-    
     <img src="thermpypng/aztecOO_heat_map.png"><br />
     <img src="thermpypng/difference_heat_map.png"><br />
-    
-    </body></html>
-    """
+    </body>
+    </html>
+    """ % (outputlist)
 
 class Http:
   
   def __init__(self, config):
     if config['http']['useHttp'] == 1:
       self.config= config
-      self.startServer()
-
-  def startServer(self):
-    print "Calling web server start"
+    print "Initializing web server"
+    self.popBrowser= config['http']['popBrowser']
         
     self.port = self.config['http']['httpPort']
+    self.uri = "http://localhost:" + str(self.port)
     self.root = Resource()
     self.root.putChild("cal", Calendar())
     self.root.putChild("formesc", FormPageEscaped())
     self.root.putChild("form", FormPage())
     self.root.putChild("stop", Stop())
     self.root.putChild("htmlfile", HTMLPreformattedTextFile())
+    # Can use an absolute path or a relative path here
     # pngdir= '/Users/toma/tools/trilinos/pytrilinos/matrixmnodal/thermpypng'
     pngdir= 'thermpypng'
     self.root.putChild("thermpypng", File(pngdir, defaultType="image/png"))
     
-    self.root.putChild("", Index())
+    self.root.putChild("", Index(self.config))
       
     self.factory = Site(self.root)
     reactor.listenTCP(self.port, self.factory)
-    print "Starting reactor on localhost:" + str(self.port)
+    
+    
+    # TODO: Add configuration variables for both starting
+    # the web browser and the server. It should be possible
+    # to run in a non-interactive batch mode without
+    # needing to kill the server. In this mode, getting
+    # an accurate set of profiling statistics and good
+    # logging is useful.
+    #   Option for starting a server
+    #   Option for popping web browser
+    #   Options for file logging
+    #   Command line option for choosing JSON config files
+    # Having more than one config file allows distinction
+    # between simulator setup and problem to be solved.
+    # This way one sim setups can be used across a suite
+    # of problems.
+    
+  def startServer(self):
+    print "Serving web pages on on " + self.uri
     reactor.run()
-    print "Reactor is finished"
-    print "Done with http server"
+    print "http server has shut down"    
+
+  def openWebBrowser(self, delay):
+    if self.popBrowser == True:
+      cmd= "sleep " + str(delay) + ' ; open "'+ self.uri + '"'
+      subprocess.Popen(cmd,shell=True)

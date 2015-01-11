@@ -22,12 +22,6 @@ class Mesh:
   """
 
   def __init__(self, config, lyr, matls):
-    """
-    __init__(Mesh self, int w, int h, Layers lyr, Matls matls)
-    Create a square mesh of size w by h.
-    The mesh data structure is in self.field, which holds double precision numbers,
-    and self.ifield, which holds integers.
-    """
     self.nodeGcount = 0
     self.nodeDcount = 0
     # NORTON: nodeCount is still needed. The other counters should not be needed.
@@ -49,25 +43,22 @@ class Mesh:
     # a layer in the mesh. Nodes start at 1. The first variable is time.
     self.spiceNodeX = []
     self.spiceNodeY = []
-
     self.defineProblem(config, lyr, matls)
     self.mapMeshToSolutionMatrix(lyr)
     
-  def setMeshDefaults(self, w, h, lyr, matls):
+  def setMeshSize(self, w, h, lyr, matls):
+    """
+    __init__(Mesh self, int w, int h, Layers lyr, Matls matls)
+    Create a square mesh of size w by h.
+    The mesh data structure is in self.field, which holds double precision numbers,
+    and self.ifield, which holds integers.
+    """    
     self.width = w
     self.height = h
     self.field = np.zeros((self.width, self.height, lyr.numdoublelayers), dtype = 'double')
     self.ifield = np.zeros((self.width, self.height, lyr.numintlayers), dtype = 'int')
     self.xr, self.yr= np.mgrid[0:self.width+1, 0:self.height+1]
-    self.field[:, :, lyr.heat]  = 0.0
-    self.field[:, :, lyr.resis] = matls.fr4ResistancePerSquare
-    self.field[:, :, lyr.deg]   = 20
-    self.field[:, :, lyr.flux]  = 0.0
-    self.field[:, :, lyr.isodeg] = 25.0
-    self.ifield[:, :, lyr.isoflag] = 0
-    # There will be no lyr.isonode in NORTON formulation
-    self.ifield[:, :, lyr.isonode] = 0     
-
+    
   # For NORTON this is the same as self.nodeCount
   def solveTemperatureNodeCount(self):
     """ 
@@ -180,7 +171,8 @@ class Mesh:
     The conductivities in the problem are based on the material properties
     in the matls object.
     """
-    mesh.setMeshDefaults(x, y, lyr, matls)
+    mesh.setMeshSize(x, y, lyr, matls)
+    mesh.field[:, :, lyr.resis] = matls.fr4ResistancePerSquare
     
     # Heat source
     hsx= 0.5
@@ -228,7 +220,8 @@ class Mesh:
     height= xysize[1]
     print "Width: " + str(width) + " Height: " + str(height)
   
-    mesh.setMeshDefaults(width, height, lyr, matls)
+    mesh.setMeshSize(width, height, lyr, matls)
+    mesh.field[:, :, lyr.resis] = matls.fr4ResistancePerSquare
   
     pix = pngproblem.load()
     copperCellCount=0
@@ -258,7 +251,8 @@ class Mesh:
     defineTinyProblem(Layer lyr, Mesh mesh, Matls matls)
     Create a tiny test problem.
     """
-    mesh.setMeshDefaults(3, 3, lyr, matls)
+    mesh.setMeshSize(3, 3, lyr, matls)
+    mesh.field[:, :, lyr.resis] = matls.fr4ResistancePerSquare
     
     mesh.ifield[0:3, 0, lyr.isoflag] = 1
     mesh.field[1, 1, lyr.heat]    = 2.0

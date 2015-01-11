@@ -6,17 +6,23 @@ import Layers
 TODO: 
 
 Integrate the plots with the debug web page.
-Use the titles from the config on the plots
+Add the difference plots to the JSON config and debug web page.
+Improve debug web page layout and ordering.
+Add interactive plots from JSON.
+Remove unused cruft from outputs JSON and the code.
 
 """ 
 
-class interactivePlot:
+class InteractivePlot:
   def __init__(self, config, solv, lyr, mesh):
     self.lyr     = lyr
     self.mesh    = mesh
+    self.layertype= {}
     self.interactive = False
     self.png = True
-    self.loadConfig(config)
+    self.showPlots= True
+    # self.loadConfig(config['outputs'])
+    self.plotPNG(config, lyr)
     if (self.showPlots == True):
       self.simplePlot(solv, lyr)
     return
@@ -24,6 +30,45 @@ class interactivePlot:
   def loadConfig(self, config):
     for output in config:
       self.__dict__[output['name']]= output['active']    
+    return
+  
+  def plotPNG(self, config, lyr):
+    for layer in config['simulation_layers']:
+      self.layertype[layer['name']]= layer['type']
+    for output in config['outputs']['png']:
+      if self.layertype[output] == 'double':
+        self.plotDoubleLayer(output, lyr.__dict__[output])
+      if self.layertype[output] == 'int':
+        self.plotIntLayer(output, lyr.__dict__[output])
+        
+  def plotDoubleLayer(self, output, layerIdx):
+    print "Plot double layer " + output + " at layer index " + str(layerIdx)
+    plt.figure(1)
+    plotfield= self.mesh.field[:, :, layerIdx];
+    plt.subplot(1,1,1)
+    plt.axes(aspect=1)
+    quad2= plt.pcolormesh(self.mesh.xr, self.mesh.yr, plotfield)
+    plt.colorbar()
+    plt.title(output + ' heat map')
+    if self.interactive == True:
+      plt.draw()
+    if self.png == True:
+      plt.savefig('thermpypng/' + output + '_heat_map.png')    
+    return
+  
+  def plotIntLayer(self, output, layerIdx):
+    print "Plot int layer" + output + " at layer index " + str(layerIdx)
+    plt.figure(1)
+    plotfield= self.mesh.ifield[:, :, layerIdx];
+    plt.subplot(1,1,1)
+    plt.axes(aspect=1)
+    quad2= plt.pcolormesh(self.mesh.xr, self.mesh.yr, plotfield)
+    plt.colorbar()
+    plt.title(output + ' heat map')
+    if self.interactive == True:
+      plt.draw()
+    if self.png == True:
+      plt.savefig('thermpypng/' + output + '_heat_map.png')    
     return
   
   def simplePlot(self, solv, lyr):
@@ -34,71 +79,8 @@ class interactivePlot:
     if self.interactive == True:
       self.show()  
 
-  def plotSolution(self):
-    """
-    plotsolution(interactivePlot self)
-    Plot the problem grids and also the solution grid.
-    """
-    self.plotResistance()
-    self.plotTemperature()
-    self.plotDirichlet()
-    self.plotHeatSources()
-    self.plotSpicedeg()
-    self.plotIsotherm()
-    self.show()
-
   def show(self):
     plt.show()
-
-  def plotIsotherm(self):
-    """
-    Make a plot that shows which nodes have Dirichlet boundary conditions
-    attached to them through a resistor
-    """
-    z5= self.mesh.ifield[:, :, self.lyr.isoflag]; 
-    plt.figure(5)
-    plt.subplot(1,1,1)
-    plt.axes(aspect=1)
-    quad4= plt.pcolormesh(self.mesh.xr, self.mesh.yr, z5)
-    plt.colorbar()
-    plt.title('Nodes with Dirichlet boundary conditions map')
-    if self.interactive == True:
-      plt.draw()
-    if self.png == True:
-      plt.savefig('thermpypng/dirichlet_map.png')
-
-  def plotHeatSources(self):
-    """
-    Make a plot that shows which nodes have heat sources attached.
-    """
-    z4= self.mesh.field[:, :, self.lyr.heat];
-    plt.figure(4)
-    plt.subplot(1,1,1)
-    plt.axes(aspect=1)
-    quad4= plt.pcolormesh(self.mesh.xr, self.mesh.yr, z4)
-    plt.colorbar()
-    plt.title('Heat sources map')
-    if self.interactive == True:
-      plt.draw()
-    if self.png == True:
-      plt.savefig('thermpypng/heat_sources_map.png')
-
-  def plotDirichlet(self):
-    """
-    Make a plot that shows the relative temperature of the Dirichlet
-    boundary condition nodes.
-    """
-    z3= self.mesh.field[:, :, self.lyr.isodeg];
-    plt.figure(3)
-    plt.subplot(1,1,1)
-    plt.axes(aspect=1)
-    quad3= plt.pcolormesh(self.mesh.xr, self.mesh.yr, z3)
-    plt.colorbar()
-    plt.title('Dirichlet boundary conditions temperature map')
-    if self.interactive == True:
-      plt.draw()
-    if self.png == True:
-      plt.savefig('thermpypng/dirichlet_temperature_map.png')
 
   def plotTemperature(self):
     """
@@ -115,22 +97,6 @@ class interactivePlot:
       plt.draw()
     if self.png == True:
       plt.savefig('thermpypng/aztecOO_heat_map.png')
-
-  def plotResistance(self):
-    """
-    Make a plot that shows the thermal resistance of the materials in the mesh nodes.
-    """
-    z1= self.mesh.field[:, :, self.lyr.resis];
-    plt.figure(1)
-    plt.subplot(1,1,1)
-    plt.axes(aspect=1)
-    quad1= plt.pcolormesh(self.mesh.xr, self.mesh.yr, z1)
-    plt.colorbar()
-    plt.title('Thermal resistance map')
-    if self.interactive == True:
-      plt.draw()
-    if self.png == True:
-      plt.savefig('thermpypng/thermal_res_map.png')
     
   def plotSpicedeg(self):
     """
@@ -169,25 +135,40 @@ class interactivePlot:
       plt.savefig('thermpypng/difference_heat_map.png')
 
 def main():
-  print "This is a test program for interactivePlot. It draws a graph on the screen."
-  import Layers
-  import Mesh2D
-  lyr = Layers.Layers([{ "index": 0, "type":"double", "name": "spicedeg" }])
-  matls = Matls.Matls([{ "name": "fr4","type": "solid","xcond": 1.0,"xcond_unit": "W/mK",
-                         "ycond": 1.0,"ycond_unit": "W/mK","thickness": 59.0,
-                         "thickness_unit": "mil"}])  
-  mesh = Mesh2D.Mesh([{"title":"Tiny 2D thermal problem","type":"tiny","active":1}], lyr, matls)
+  import numpy as np
+  print "This is a test program for interactivePlot. It draws mesh plots on the screen."
+  w= 4
+  h= 3
+  field= np.zeros((w, h), dtype='double')
+  xr, yr= np.mgrid[0:w+1, 0:h+1]
+  for x in range(0,w):
+    for y in range(0,h):
+      field[x,y] += x*y + x/2.0 + y/2.0
+    
+  plt.subplot(1, 1, 1)
+  plt.pcolormesh(xr, yr, field)
+  plt.title('pcolormesh test plot')
+  # set the limits of the plot to the limits of the data
+  plt.axis([xr.min(), xr.max(), yr.min(), yr.max()])
+  plt.colorbar()  
+  plt.draw()
+  plt.show()    
+
+  # make these smaller to increase the resolution
+  dx, dy = 0.5, 0.5
   
-  for x in range(0,3):
-    for y in range(0,3):
-      mesh.field[x, y, lyr.spicedeg] = (x+1) * ((y+1) + 1)
+  # generate 2 2d grids for the x & y bounds
+  y, x = np.mgrid[slice(-3, 3 + dy, dy),
+                  slice(-3, 3 + dx, dx)]
+  z = (1 - x / 2. + x ** 5 + y ** 3) * np.exp(-x ** 2 - y ** 2)
 
-  plots= interactivePlot(lyr, mesh)
-  plots.png= True
-  plots.interactive= True
-  plots.plotSpicedeg() 
-  plots.show()
-
+  plt.subplot(1, 1, 1)
+  plt.pcolormesh(x, y, z)
+  plt.title('pcolormesh test plot')
+  plt.axis([x.min(), x.max(), y.min(), y.max()])
+  plt.colorbar()  
+  plt.draw()
+  plt.show()  
 
 if __name__ == '__main__':
   main()

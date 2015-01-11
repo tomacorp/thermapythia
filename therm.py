@@ -37,53 +37,24 @@ import subprocess, os
 import pstats
 import StringIO
 import cProfile
-import Layers
-import Matls
-import Mesh2D
-import Solver2D
-import ParseSimFile
-import interactivePlot
-import yaml
-import Http
+import SimControl
+import Profiler
 
-def Main(simConfig):
-  lyr = Layers.Layers(simConfig['simulation_layers'])
-  matls = Matls.Matls(simConfig['layer_matl'])
-  # TODO: Consider refactoring to split mesh into geometry and mesh
-  mesh = Mesh2D.Mesh(simConfig['mesh'], lyr, matls)
-  solv = Solver2D.Solver(simConfig['solvers'], lyr, mesh)
-  solv.solveFlags(simConfig['solverFlags'])
-  solv.solve(simConfig['solverDebug'], lyr, mesh, matls) 
-  plots= interactivePlot.interactivePlot(simConfig['outputs'], solv, lyr, mesh)
-  
-  
-  # TODO: Generate web pages for static (not interactive) plots
-  http = Http.Http(simConfig)  
-  # This works from the command line to open a page:
-  # open "http://localhost:8880/htmlfile/diri_AxRHS.html"
+def Main(sim):
+  sim.loadModel()
+  sim.solveModel()
+  sim.loadView()
+  sim.loadController()
+  sim.launchController()   
 
+# Program entry is here:
+sim= SimControl.SimControl()
 
-simConfigFile= ParseSimFile.ParseSimFile()
-simConfigJSON= simConfigFile.exampleJSON()
-simConfig= yaml.load(simConfigJSON)
-
-if simConfig['showProfile'] == 1:
-  cProfile.run('Main(simConfig)', 'restats')
-  
-  # TODO: Move this code into Profile.py and 
-  # make methods for extracting the data for use in reports.
-  # High level data such as overall time and detailed function data.
-  
-  stream = StringIO.StringIO()
-  stats = pstats.Stats('restats', stream=stream)
-  stats.sort_stats('cumulative').dump_stats('restats')
-  stats.print_stats()
-  profileFile = open(simConfig['profileFilename'], "w")
-  profileFile.write(stream.getvalue())
-  profileFile.close()
-
+if sim.config['showProfile'] == 0:
+  Main(sim) 
 else:
-  Main(simConfig)
+  cProfile.run('Main(sim)', 'restats')
+  prof= Profiler.Profiler(sim.config)
 
 # Times without printing much.
 # Printing overhead is probably about 10% in this case.

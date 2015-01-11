@@ -1,12 +1,3 @@
-
-import yaml
-
-class ParseSimFile:
-
-# NORTON isonode layer will be eliminated.
-# But NORTON with holes will need another layer.
-  def exampleJSON(self):
-    js= """
 {
   "simulation_layers": [
     { "index": 0, "type":"double", "name": "iso"          },
@@ -103,12 +94,13 @@ class ParseSimFile:
     }
   ],
 
-  "outputs": [
-    {
-      "name": "showPlots",
-      "active": 1
-    },
-  ],
+  "outputs": {
+    "name": "showPlots",
+    "active": 1,
+    "png":  ["spicedeg","deg","iso","heat","resis","flux","isodeg","isoflag","spicenodenum"],
+    "interactive":  ["deg"],
+    "deltapng": ["deg", "spicedeg"]
+  },
   
 
   "showProfile": 1,
@@ -121,28 +113,9 @@ class ParseSimFile:
   
   "http": {
     "httpPort": 8880,
-    "useHttp": 1
+    "useHttp": 1,
+    "popBrowser": 1
   }
   
 
 }
-
-"""  
-    return js
-  
-def Main():
-  exampleJson= '["foo", {"bar":["baz", null, 1.0, 2]}]'
-  print exampleJson
-  x= yaml.load(exampleJson)
-  print str(x)
-  
-  simConfig= ParseSimFile()
-  jsonStr= simConfig.exampleJSON()
-
-  js= yaml.load(jsonStr)
-  print str(js)
-  print str(js['outputs'][0]['name'])
-  
-if __name__ == '__main__':
-  Main()
-  
