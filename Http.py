@@ -8,10 +8,7 @@ import subprocess, os
 
 import cgi
 from calendar import calendar
-
-
-# TODO: Hook up the other images in interactivePlot, and display
-# them in an HTML page here.
+from itertools import izip
 
 class HTMLPreformattedTextFile(Resource):
   def getChild(self, filename, request):
@@ -74,13 +71,29 @@ class Stop(Resource):
     
 class Index(Resource):
   
+  def pairwise(self, iterable):
+      "s -> (s0,s1), (s2,s3), (s4, s5), ..."
+      a = iter(iterable)
+      return izip(a, a)    
+  
   def __init__(self, config):
     self.config= config
     
   def render_GET(self, request):
-    outputlist= ''
-    for png in self.config['outputs']['png']:
-      outputlist = outputlist + "<li><img src='thermpypng/" + png + "_heat_map.png' /></li>"
+    outputMeshList= ''
+
+    if 'mesh' in self.config['outputs']:
+      if 'png' in self.config['outputs']['mesh']:
+        for png in self.config['outputs']['mesh']['png']:
+          outputMeshList = outputMeshList + "<li><img src='thermpypng/" + png + "_heat_map.png' /></li>"
+
+    if 'deltamesh' in self.config['outputs']:
+      if 'png' in self.config['outputs']['deltamesh']:
+      
+        for out1, out2 in self.pairwise(self.config['outputs']['deltamesh']['png']):
+          plotName= 'png' + '_' + out1 + '_' + out2
+          outputMeshList = outputMeshList + "<li><img src='thermpypng/" + plotName + "_heat_map.png' /></li>"            
+    
     return """
     <html>
     <head><title>Thermonous</title></head>
@@ -90,14 +103,13 @@ class Index(Resource):
     <li><a href="stop">Stop</a></li>
     <li><a href="htmlfile/result.html">Matrix with diagnostics</a></li>
     <li><a href="htmlfile/diri_AxRHS.html">Matrix solution</a></li>
-    <li><a href="thermpypng/aztecOO_heat_map.png">Saved bitmaps</a>
     %s
     </ul>
-    <img src="thermpypng/aztecOO_heat_map.png"><br />
-    <img src="thermpypng/difference_heat_map.png"><br />
+    <!-- <img src="thermpypng/aztecOO_heat_map.png"><br />
+    <img src="thermpypng/difference_heat_map.png"><br /> -->
     </body>
     </html>
-    """ % (outputlist)
+    """ % (outputMeshList)
 
 class Http:
   

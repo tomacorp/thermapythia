@@ -10,6 +10,19 @@ import Http
 
 class SimControl:
   
+  """
+  TODO:
+  Need clean structure of the JSON with:
+    Simulation controls: HTTP server, settings
+    Input data: geometry, materials, layers, components, power inputs, boundary conditions
+    Intermediate data: mesh, solver, matrix in, matrix out
+    Output raw data: HDF5, Spice, and PNG specifications, basically
+    Visualization: What to create, where to put it
+  Need a higher level for reports, which can have a collection of simulations.
+  These can show design tradeoffs such as what-if thicker copper or larger vias.
+  They can also show benchmarks from a test set of simulations.
+  """
+  
   def __init__(self):
     parser = argparse.ArgumentParser()
     parser.add_argument('cfg', nargs='?', type=argparse.FileType('r'), default=sys.stdin)
@@ -22,17 +35,18 @@ class SimControl:
     self.lyr = Layers.Layers(self.config['simulation_layers'])
     self.matls = Matls.Matls(self.config['layer_matl'])
     # TODO: Consider refactoring to split mesh into geometry and mesh
+    # DELAY REFACTORING: Implement holes first.
     self.mesh = Mesh2D.Mesh(self.config['mesh'], self.lyr, self.matls)   
     return
   
   def solveModel(self):
-    self.solv = Solver2D.Solver(self.config['solvers'], self.lyr, self.mesh)
-    self.solv.solveFlags(self.config['solverFlags'])
-    self.solv.solve(self.config['solverDebug'], self.lyr, self.mesh, self.matls)    
-    return  
+    self.solv = Solver2D.Solver(self.config['solver'], self.mesh.nodeCount)
+    self.solv.solve(self.lyr, self.mesh, self.matls)    
+    return
     
   def loadView(self):
     self.plots= InteractivePlot.InteractivePlot(self.config, self.solv, self.lyr, self.mesh)
+    self.plots.plotAll()
     return
   
   def loadController(self):

@@ -6,6 +6,25 @@ import MatrixDiagnostic
 import MatrixMarket as mm
 import MMHtml
 
+# TODO: Methods here should be in four stages:
+#   Mesh
+#   Load Matrix
+#   Solve Matrix
+#   Unload solution back into mesh
+# Might need to move some routines from here back into the mesh class.
+# The Matrix loader also loads the shadow matrix.
+# The solver should only have access to the matrix, not the mesh or layers.
+# 
+# Right now it is a bit messy that Spice, for example, would be spread
+# across multiple classes. Might need a dispatch loader, solver, and unloader
+# to implement independent classes for these different approaches.
+#
+# Refactor for separate debug flags for printing details, shadowing the matrix,
+# creating Matrix Market files, and HTML matrix creation.
+#
+# DELAY REFACTORING: After holes are implemented, a lot of this class
+# will go away, which will make refactoring much easier.
+
 class Solver:
   """
   The Solver class loads a matrix and solves it.
@@ -44,7 +63,44 @@ class Solver:
     Also count the number of boundary sources, which is the size of the D matrix.   
   """
 
-  def __init__(self, config, lyr, mesh):
+  def __init__(self, config, nodeCount):
+    
+    self.initEpetra(nodeCount)
+    
+    self.useSpice          = False
+    self.useAztec          = False
+    self.useAmesos         = False
+    self.useEigen          = False 
+    foundSolver= 0
+    for solver in config['solvers']:
+      if solver['active'] == 1:
+        if (solver['solverName'] == "Eigen"):
+          self.useEigen = True
+        if (solver['solverName'] == "Aztec"):
+          self.useAztec = True
+        if (solver['solverName'] == "Amesos"):
+          self.useAmesos = True  
+        if (solver['solverName'] == "Spice"):
+          self.useSpice = True
+          self.spice= Spice2D.Spice(solver['simbasename'])
+    if (self.useSpice == False):
+      self.spice= None       
+  
+    for solver in config['solverFlags']:
+      self.__dict__[solver['flag']] = solver['setting']
+
+    if self.debug == True:
+      """
+      Create a shadow matrix as a duplicate of A and a shadow RHS as duplicate of b.
+      These are easier to access than self.A and self.b, which are opaque.
+      """
+      self.As = np.zeros((self.NumGlobalElements, self.NumGlobalElements), dtype = 'double')
+      self.bs = np.zeros(self.NumGlobalElements)
+      self.debugWebPage= config['solverDebug']['debugWebPage']
+      self.mmPrefix= config['solverDebug']['mmPrefix']
+
+    
+  def initEpetra(self, nodeCount):
     """
     define the communicator (Serial or parallel, depending on your configure
     line), then initialize a distributed matrix of size 4. The matrix is empty,
@@ -56,7 +112,7 @@ class Solver:
 
     mostCommonNonzeroEntriesPerRow = 5
     self.Comm              = Epetra.PyComm()
-    self.NumGlobalElements = mesh.nodeCount
+    self.NumGlobalElements = nodeCount
     self.Map               = Epetra.Map(self.NumGlobalElements, 0, self.Comm)
     self.A                 = Epetra.CrsMatrix(Epetra.Copy, self.Map, mostCommonNonzeroEntriesPerRow)
     self.NumMyElements     = self.Map.NumMyElements()
@@ -86,18 +142,52 @@ class Solver:
     # Without it, the data structure is hard to access.
     self.bs= []
     self.x= []    
-    self.solveSetup(config)
+
+  def solve(self, lyr, mesh, matls):
+    self.loadMatrix(lyr, mesh, matls, self.spice)
     
-  def initDebug(self, config):
-    """
-    initDebug(Solver self)
-    Create a shadow matrix as a duplicate of A and a shadow RHS as duplicate of b.
-    These are easier to access than self.A and self.b, which are opaque.
-    """
-    if self.debug == True:
-      self.As = np.zeros((self.NumGlobalElements, self.NumGlobalElements), dtype = 'double')
-      self.bs = np.zeros(self.NumGlobalElements)
-      self.debugWebPage= config['debugWebPage']
+    if (self.useEigen == True):
+      print "Solving for eigenvalues"
+      self.solveEigen()
+      print "Finished solving for eigenvalues"
+    
+    if (self.useSpice == True):
+      self.solveSpice(mesh, lyr)
+      
+    if (self.useAztec == True):
+      self.solveAztecOO(mesh, lyr)
+      
+    if (self.useAmesos == True):
+      self.solveAmesos(mesh, lyr)  
+      
+    if (self.debug == True):
+      webpage = MatrixDiagnostic.MatrixDiagnosticWebpage(self, lyr, mesh)
+      webpage.createWebPage()        
+      self.debugMatrix()
+
+  def debugMatrix(self):
+    # TODO: Use config to name and position these 4 files:
+
+    probFilename = self.mmPrefix + "A.mm"
+    rhsFilename = self.mmPrefix + "RHS.mm"
+    xFilename = self.mmPrefix + "x.mm"
+    htmlFilename = self.mmPrefix + "AxRHS.html"
+    #if options.verbose:
+        #print "Creating files " + probFilename + " " + rhsFilename + " " + xFilename
+    EpetraExt.RowMatrixToMatrixMarketFile(probFilename, self.A)   
+    EpetraExt.MultiVectorToMatrixMarketFile(rhsFilename, self.b)
+    EpetraExt.MultiVectorToMatrixMarketFile(xFilename, self.x)
+    
+    MMHtmlWriter= MMHtml.MMHtml()
+    MMReaderRHS= mm.MatrixMarket()
+    MMRHS= MMReaderRHS.read(rhsFilename) 
+    
+    MMReaderX= mm.MatrixMarket()
+    MMX= MMReaderX.read(xFilename)     
+    
+    MMReaderMMA= mm.MatrixMarket()     
+    MMA= MMReaderMMA.read(probFilename)
+    MMHtmlWriter.writeHtml([MMA, MMX, MMRHS], htmlFilename)     
 
   def loadMatrix(self, lyr, mesh, matls, spice):
     """
@@ -957,87 +1047,20 @@ class Solver:
       print "dirichlet End Node= ", dirichletEndNode
     return temperatureStartNode, temperatureEndNode, dirichletStartNode, dirichletEndNode
 
-  def solveAmesos(solv, mesh, lyr):
-    solv.solveMatrixAmesos()
-    solv.loadSolutionIntoMesh(lyr, mesh)
-    solv.checkEnergyBalance(lyr, mesh)
+  def solveAmesos(self, mesh, lyr):
+    self.solveMatrixAmesos()
+    self.loadSolutionIntoMesh(lyr, mesh)
+    self.checkEnergyBalance(lyr, mesh)
     
-  def solveAztecOO(solv, mesh, lyr):
-    solv.solveMatrixAztecOO(400000)
-    solv.loadSolutionIntoMesh(lyr, mesh)
-    solv.checkEnergyBalance(lyr, mesh)   
-  
-  def solveSetup(solv, config): 
-    solv.useSpice          = False
-    solv.useAztec          = False
-    solv.useAmesos         = False
-    solv.useEigen          = False 
-    
-    foundSolver= 0
-    for solver in config:
-      if solver['active'] == 1:
-        if (solver['solverName'] == "Eigen"):
-          solv.useEigen = True
-        if (solver['solverName'] == "Aztec"):
-          solv.useAztec = True
-        if (solver['solverName'] == "Amesos"):
-          solv.useAmesos = True  
-        if (solver['solverName'] == "Spice"):
-          solv.useSpice = True
-          solv.spice= Spice2D.Spice(solver['simbasename'])
-    if (solv.useSpice == False):
-      solv.spice= None    
-    
-  def solveFlags(solv, config):
-    solv.debug = False
-    for solver in config:
-      solv.__dict__[solver['flag']] = solver['setting']
+  def solveAztecOO(self, mesh, lyr):
+    self.solveMatrixAztecOO(400000)
+    self.loadSolutionIntoMesh(lyr, mesh)
+    self.checkEnergyBalance(lyr, mesh)   
 
-  def solveSpice(solv, mesh, lyr):
-    solv.spice.finishSpiceNetlist()
-    proc= solv.spice.runSpiceNetlist()
+  def solveSpice(self, mesh, lyr):
+    self.spice.finishSpiceNetlist()
+    proc= self.spice.runSpiceNetlist()
     proc.wait()
-    solv.spice.readSpiceRawFile(lyr, mesh)       
+    self.spice.readSpiceRawFile(lyr, mesh)       
       
-  def solve(solv, config, lyr, mesh, matls):
-    solv.initDebug(config)
-    solv.loadMatrix(lyr, mesh, matls, solv.spice)
     
-    if (solv.useEigen == True):
-      print "Solving for eigenvalues"
-      solv.solveEigen()
-      print "Finished solving for eigenvalues"
-    
-    if (solv.useSpice == True):
-      solv.solveSpice(mesh, lyr)
-      
-    if (solv.useAztec == True):
-      solv.solveAztecOO(mesh, lyr)
-      
-    if (solv.useAmesos == True):
-      solv.solveAmesos(mesh, lyr)  
-      
-    if (solv.debug == True):
-      webpage = MatrixDiagnostic.MatrixDiagnosticWebpage(solv, lyr, mesh)
-      webpage.createWebPage()  
-      mmPrefix= "diri_"
-      probFilename = mmPrefix + "A.mm"
-      rhsFilename = mmPrefix + "RHS.mm"
-      xFilename = mmPrefix + "x.mm"
-      htmlFilename = mmPrefix + "AxRHS.html"
-      #if options.verbose:
-          #print "Creating files " + probFilename + " " + rhsFilename + " " + xFilename
-      EpetraExt.RowMatrixToMatrixMarketFile(probFilename, solv.A)   
-      EpetraExt.MultiVectorToMatrixMarketFile(rhsFilename, solv.b)
-      EpetraExt.MultiVectorToMatrixMarketFile(xFilename, solv.x)
-      
-      MMHtmlWriter= MMHtml.MMHtml()
-      MMReaderRHS= mm.MatrixMarket()
-      MMRHS= MMReaderRHS.read(rhsFilename) 
-      
-      MMReaderX= mm.MatrixMarket()
-      MMX= MMReaderX.read(xFilename)     
-      
-      MMReaderMMA= mm.MatrixMarket()     
-      MMA= MMReaderMMA.read(probFilename)
-      MMHtmlWriter.writeHtml([MMA, MMX, MMRHS], htmlFilename)       
