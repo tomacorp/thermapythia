@@ -11,6 +11,22 @@ import Http
 class SimControl:
   
   """
+  TODO: Clean up DEAD LAYERS
+  """
+  
+  """
+  TODO:
+  Question: are things clean enough that NORTON and HOLES can be implemented
+  A/B with conditionals? For example, diff two otherwise identical 
+  config json files.
+  Refactorings: 
+    NORTON boundary conditions.
+    HOLES.
+    Class cleanup.
+    3D.
+  """
+  
+  """
   TODO:
   Need clean structure of the JSON with:
     Simulation controls: HTTP server, settings
@@ -21,6 +37,14 @@ class SimControl:
   Need a higher level for reports, which can have a collection of simulations.
   These can show design tradeoffs such as what-if thicker copper or larger vias.
   They can also show benchmarks from a test set of simulations.
+  """
+  
+  """
+  TODO:
+  There needs to be a top level directory for program outputs.
+  Directories, such as for PNG files, go beneath this level.
+  Directories that do not exist need to be created.
+  These names should all go in the JSON config file.
   """
   
   def __init__(self):
