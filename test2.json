@@ -1,4 +1,10 @@
 {
+
+
+  "showProfile": 1,
+  "profileFilename": "profile.txt",
+
+
   "simulation_layers": [
     { "index": 0, "type":"double", "name": "iso"          },
     { "index": 1, "type":"double", "name": "heat"         },
@@ -11,6 +17,7 @@
     { "index": 1, "type":"int",    "name": "isoflag"      },
     { "index": 2, "type":"int",    "name": "spicenodenum" }
   ],
+  
   
   "layer_matl": [
     { "name": "fr4",
@@ -41,6 +48,7 @@
       "thickness_unit": "mil"
     }
   ],
+  
   
   "mesh": [
     {
@@ -101,6 +109,7 @@
     }
   },
 
+
   "outputs": {
     "active": 1,
     "mesh": { 
@@ -113,10 +122,6 @@
     },
     "outputDirectory": "thermpypng"
   },
-
-  "showProfile": 1,
-  "profileFilename": "profile.txt",
-  
 
   
   "http": {
