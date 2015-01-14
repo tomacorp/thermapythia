@@ -735,13 +735,19 @@ class Solver:
     # boundaryNode is not generated, so this variable is not in NORTON
     boundaryNode = mesh.ifield[x, y, lyr.isonode]
     
-    # In NORTON the isoIdx does not position the self.b row, instead it is just the node at x, y
-    # that gets incremented by the amount of current in the boundary,
-    # which is mesh.field[x, y, lyr.isodeg] * matls.boundCond
-    # Or, maybe it needs to go in a local array and all of this is taken care of at once.
+    # In NORTON the isoIdx does not position the self.b row, instead it is just t
+    # 1: The node at x, y gets on-diagonal conductance incremented by the amount of conductance 
+    # in the boundary.
+    # 2: b, the RHS gets the current source which is mesh.field[x, y, lyr.isodeg] * matls.boundCond
+    # 
+    # Or, maybe the current need to go in a local array and all of this is taken care of at once.
     # There may be problems retrieving values from self.b due to the complexity of the Trilinos map,
     # which can go across mpi boundaries.
     # The real problem is doing a thread-safe += operation across processors.
+    
+    
+    
+    
     self.b[self.isoIdx + mesh.nodeDcount]= mesh.field[x, y, lyr.isodeg]
     self.A[nodeThis, nodeThis]= GNode
 
@@ -772,7 +778,7 @@ class Solver:
       thisSpiceNode=   "N" + str(x)   + self.s + str(y)
       
       # Norton equivalent boundary resistance and current source.
-      if self.useNorton == True:
+      if self.useSpiceNorton == True:
         thisIsoSource=   "I" + thisSpiceNode
       else:
         thisIsoSource=   "V" + thisSpiceNode
@@ -781,7 +787,7 @@ class Solver:
       thisBoundaryResistor=  "RDIRI" + self.s + str(x) + self.s + str(y)
       thisBoundaryResistance= 1.0/matls.boundCond
       
-      if self.useNorton == True:
+      if self.useSpiceNorton == True:
         thisBoundaryCurrent= mesh.field[x, y, lyr.isodeg]/thisBoundaryResistance
         spice.appendSpiceNetlist(thisIsoSource + " 0 " + thisSpiceNode + " DC " + str(thisBoundaryCurrent) + "\n")
         spice.appendSpiceNetlist(thisBoundaryResistor + " " + thisSpiceNode + " 0 " + str(thisBoundaryResistance) + "\n")
@@ -1020,8 +1026,10 @@ class Solver:
       powerIn = powerIn + self.b[n]
     # For NORTON equivalent formulation this will need to change. The dirichletNodes do not exist.
     # Power out is the current in the boundary resistors that are not due to the boundary current source.
-    for n in range(dirichletStartNode, dirichletEndNode):
-      powerOut = powerOut + self.x[n]
+    # NORTON1
+    if self.useMatrixNorton == False:
+      for n in range(dirichletStartNode, dirichletEndNode):
+        powerOut = powerOut + self.x[n]
     print "Power In = ", powerIn
     print "Power Out = ", powerOut
 

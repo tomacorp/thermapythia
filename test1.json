@@ -78,8 +78,12 @@
         "setting": 1
       },
       {
-        "flag": "useNorton",
+        "flag": "useSpiceNorton",
         "setting": 1
+      },
+            {
+        "flag": "useMatrixNorton",
+        "setting": 0
       }
     ],
     "solvers": [
