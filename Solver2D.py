@@ -735,7 +735,7 @@ class Solver:
     # boundaryNode is not generated, so this variable is not in NORTON
     boundaryNode = mesh.ifield[x, y, lyr.isonode]
     
-    # In NORTON the isoIdx does not position the self.b row, instead it is just t
+    # In NORTON the isoIdx does not position the self.b row, instead it is:
     # 1: The node at x, y gets on-diagonal conductance incremented by the amount of conductance 
     # in the boundary.
     # 2: b, the RHS gets the current source which is mesh.field[x, y, lyr.isodeg] * matls.boundCond
@@ -745,20 +745,22 @@ class Solver:
     # which can go across mpi boundaries.
     # The real problem is doing a thread-safe += operation across processors.
     
+    if self.useMatrixNorton == True:
+      self.A[nodeThis, nodeThis] += GNode
+      self.b[nodeThis] = mesh.field[x, y, lyr.isodeg] * matls.boundCond
     
-    
-    
-    self.b[self.isoIdx + mesh.nodeDcount]= mesh.field[x, y, lyr.isodeg]
-    self.A[nodeThis, nodeThis]= GNode
-
-    # This is the B and C matrix, not needed in NORTON
-    self.A[boundaryNode, self.isoIdx + mesh.nodeDcount]= 1.0
-    self.A[self.isoIdx + mesh.nodeDcount, boundaryNode]= 1.0
-    
-    # There is no diagonal term on the boundary conductivity, so these are not in NORTON
-    self.A[boundaryNode, boundaryNode]= matls.boundCond
-    self.A[boundaryNode, nodeThis]= -matls.boundCond
-    self.A[nodeThis, boundaryNode]= -matls.boundCond
+    if self.useMatrixNorton == False:
+      self.b[self.isoIdx + mesh.nodeDcount]= mesh.field[x, y, lyr.isodeg]
+      self.A[nodeThis, nodeThis]= GNode
+  
+      # This is the B and C matrix, not needed in NORTON
+      self.A[boundaryNode, self.isoIdx + mesh.nodeDcount]= 1.0
+      self.A[self.isoIdx + mesh.nodeDcount, boundaryNode]= 1.0
+      
+      # There is no diagonal term on the boundary conductivity, so these are not in NORTON
+      self.A[boundaryNode, boundaryNode]= matls.boundCond
+      self.A[boundaryNode, nodeThis]= -matls.boundCond
+      self.A[nodeThis, boundaryNode]= -matls.boundCond
 
     if self.debug == True:
       self.bs[self.isoIdx + mesh.nodeDcount]= mesh.field[x, y, lyr.isodeg]

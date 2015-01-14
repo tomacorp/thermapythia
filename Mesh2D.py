@@ -23,7 +23,7 @@ class Mesh:
 
   def __init__(self, config, lyr, matls):
     
-    self.useNortonMatrix= False    
+    self.useMatrixNorton= False    
     
     self.nodeGcount = 0
     self.nodeDcount = 0
@@ -81,7 +81,7 @@ class Mesh:
 
     """
     # NORTON2
-    if self.useNortonMatrix==True:
+    if self.useMatrixNorton==True:
       return 0
     
     count = 0
@@ -151,16 +151,18 @@ class Mesh:
         #   lyr.isonode  - there will still be lyr.isoflag and lyr.isodeg.
         #   lyr.nodeGBcount (boundary count?)
         #   self.nodeDcount
-        if (self.ifield[x, y, lyr.isoflag] == 1):
-          # print "Mapping mesh isothermal node at (x, y) = (", x, ", ", y, ")"
-          # Every boundary condition gets a new node
-          self.nodeGcount = self.nodeGcount + 1
-          self.nodeGBcount = self.nodeGBcount + 1
-          self.nodeCount = self.nodeCount + 1
-          # Every boundary condition gets a new voltage source
-          self.nodeDcount = self.nodeDcount + 1
-          self.ifield[x, y, lyr.isonode] = self.nodeGcount
-          self.nodeCount = self.nodeCount + 1
+        
+        if self.useMatrixNorton == False:        
+          if (self.ifield[x, y, lyr.isoflag] == 1):
+            # print "Mapping mesh isothermal node at (x, y) = (", x, ", ", y, ")"
+            # Every boundary condition gets a new node
+            self.nodeGcount = self.nodeGcount + 1
+            self.nodeGBcount = self.nodeGBcount + 1
+            self.nodeCount = self.nodeCount + 1
+            # Every boundary condition gets a new voltage source
+            self.nodeDcount = self.nodeDcount + 1
+            self.ifield[x, y, lyr.isonode] = self.nodeGcount
+            self.nodeCount = self.nodeCount + 1
     self.nodeGcount = self.nodeGcount + 1
     print "Number of independent nodes in G matrix= ", self.nodeGcount
     print "Number of independent nodes in GF matrix= ", self.nodeGFcount
