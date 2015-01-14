@@ -57,7 +57,7 @@ class SimControl:
     self.matls = Matls.Matls(self.config['layer_matl'])
     # TODO: Consider refactoring to split mesh into geometry and mesh
     # DELAY REFACTORING: Implement holes first.
-    self.mesh = Mesh2D.Mesh(self.config['mesh'], self.lyr, self.matls)   
+    self.mesh = Mesh2D.Mesh(self.config['mesh'], self.lyr, self.matls, self.config['norton'])   
     return
   
   def solveModel(self):

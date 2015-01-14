@@ -241,7 +241,7 @@ class Solver:
         # Check x,y for iso condition
         #   If it exists, compute the current and add it to the local variable.
         # set self.b[nodeThis] to the local variable
-        self.b[nodeThis]= mesh.field[x, y, lyr.heat]
+        self.b[nodeThis] += mesh.field[x, y, lyr.heat]
         if self.debug == True:
           self.bs[nodeThis]= mesh.field[x, y, lyr.heat]
             
@@ -746,8 +746,11 @@ class Solver:
     # The real problem is doing a thread-safe += operation across processors.
     
     if self.useMatrixNorton == True:
-      self.A[nodeThis, nodeThis] += GNode
+      self.A[nodeThis, nodeThis] = GNode
       self.b[nodeThis] = mesh.field[x, y, lyr.isodeg] * matls.boundCond
+      if self.debug == True:
+        self.bs[nodeThis]= mesh.field[x, y, lyr.isodeg] * matls.boundCond
+        self.As[nodeThis, nodeThis]= GNode    
     
     if self.useMatrixNorton == False:
       self.b[self.isoIdx + mesh.nodeDcount]= mesh.field[x, y, lyr.isodeg]
@@ -762,19 +765,19 @@ class Solver:
       self.A[boundaryNode, nodeThis]= -matls.boundCond
       self.A[nodeThis, boundaryNode]= -matls.boundCond
 
-    if self.debug == True:
-      self.bs[self.isoIdx + mesh.nodeDcount]= mesh.field[x, y, lyr.isodeg]
-      self.As[nodeThis, nodeThis]= GNode
-      self.As[boundaryNode, self.isoIdx + mesh.nodeDcount]= 1.0
-      self.As[self.isoIdx + mesh.nodeDcount, boundaryNode]= 1.0
-      self.As[boundaryNode, boundaryNode]= self.GDamping
-      self.As[boundaryNode, boundaryNode]= matls.boundCond
-      self.As[boundaryNode, nodeThis]= -matls.boundCond
-      self.As[nodeThis, boundaryNode]= -matls.boundCond
-      print "  source vector idx= ", self.isoIdx
-      print "  node with thermal source attached= ", nodeThis
-      print "  node for boundary source= ", boundaryNode
-      print "  row for source vector 1 multiplier= ", self.isoIdx + mesh.nodeDcount
+      if self.debug == True:
+        self.bs[self.isoIdx + mesh.nodeDcount]= mesh.field[x, y, lyr.isodeg]
+        self.As[nodeThis, nodeThis]= GNode
+        self.As[boundaryNode, self.isoIdx + mesh.nodeDcount]= 1.0
+        self.As[self.isoIdx + mesh.nodeDcount, boundaryNode]= 1.0
+        self.As[boundaryNode, boundaryNode]= self.GDamping
+        self.As[boundaryNode, boundaryNode]= matls.boundCond
+        self.As[boundaryNode, nodeThis]= -matls.boundCond
+        self.As[nodeThis, boundaryNode]= -matls.boundCond
+        print "  source vector idx= ", self.isoIdx
+        print "  node with thermal source attached= ", nodeThis
+        print "  node for boundary source= ", boundaryNode
+        print "  row for source vector 1 multiplier= ", self.isoIdx + mesh.nodeDcount
       
     if self.useSpice == True:
       thisSpiceNode=   "N" + str(x)   + self.s + str(y)

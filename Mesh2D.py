@@ -21,9 +21,9 @@ class Mesh:
   
   """
 
-  def __init__(self, config, lyr, matls):
+  def __init__(self, config, lyr, matls, norton):
     
-    self.useMatrixNorton= False    
+    self.useMatrixNorton= norton   
     
     self.nodeGcount = 0
     self.nodeDcount = 0
