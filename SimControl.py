@@ -10,9 +10,6 @@ import Http
 
 class SimControl:
   
-  """
-  TODO: Clean up DEAD LAYERS
-  """
   
   """
   TODO:

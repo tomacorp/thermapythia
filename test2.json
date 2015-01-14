@@ -10,9 +10,8 @@
     { "index": 1, "type":"double", "name": "heat"         },
     { "index": 2, "type":"double", "name": "resis"        },
     { "index": 3, "type":"double", "name": "deg"          },
-    { "index": 4, "type":"double", "name": "flux"         },
-    { "index": 5, "type":"double", "name": "isodeg"       },
-    { "index": 6, "type":"double", "name": "spicedeg"     },
+    { "index": 4, "type":"double", "name": "isodeg"       },
+    { "index": 5, "type":"double", "name": "spicedeg"     },
     { "index": 0, "type":"int",    "name": "isonode"      },
     { "index": 1, "type":"int",    "name": "isoflag"      },
     { "index": 2, "type":"int",    "name": "spicenodenum" }
@@ -113,7 +112,7 @@
   "outputs": {
     "active": 1,
     "mesh": { 
-       "png": ["spicedeg","deg","iso","heat","resis","flux","isodeg","isoflag","spicenodenum"],
+       "png": ["spicedeg","deg","heat","resis","isodeg","isoflag","spicenodenum"],
        "interactive": ["deg"]
     },
     "deltamesh": {
