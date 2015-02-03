@@ -10,8 +10,6 @@ TODO:
 Improve debug web page layout and ordering.
 Add style to debug web page output.
 
-spicenodenum, flux, and iso plots look broken. Fix or remove.
-
 Put solutions into separate directories based on problem name.
 Make a static index page for all the problems and solutions.
 
@@ -81,7 +79,7 @@ class InteractivePlot:
       plt.draw()
       plt.show()
     if device == 'png':
-      self.filename[output]= self.config['outputs']['outputDirectory'] + output + '_heat_map.png'
+      self.filename[output]= self.config['outputs']['outputDirectory'] + '/' + output + '_heat_map.png'
       plt.savefig(self.filename[output])    
     return
   
@@ -104,7 +102,7 @@ class InteractivePlot:
       plt.draw()
       plt.show()
     if device == 'png':
-      self.filename[output]= self.config['outputs']['outputDirectory'] + output + '_heat_map.png'
+      self.filename[output]= self.config['outputs']['outputDirectory'] + '/' + output + '_heat_map.png'
       plt.savefig(self.filename[output])      
     return
 

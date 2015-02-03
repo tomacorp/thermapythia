@@ -8,6 +8,7 @@ It can refer to external or internal models such as materials.
 What is different from a spice model is that it probably has some sort
 of file order that determines layer order. But this could also be
 done with indexes (which don't have to been evenly spaced integers).
+Of course the natural order in the file would be the same as the indexes.
 
 The important things are:
   Have a clean ascii representation that is easy to human edit and machine parse.

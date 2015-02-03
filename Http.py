@@ -135,8 +135,8 @@ class Http:
     self.root.putChild("", Index(self.config))
       
     self.factory = Site(self.root)
-    reactor.listenTCP(self.port, self.factory)
-    
+    statusHTTP= reactor.listenTCP(self.port, self.factory)
+    print "HTTP Server status for listenTCP: " + str(statusHTTP)
     
     # TODO: Add configuration variables for both starting
     # the web browser and the server. It should be possible

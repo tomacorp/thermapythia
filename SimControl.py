@@ -13,11 +13,9 @@ class SimControl:
   
   """
   TODO:
-  Question: are things clean enough that NORTON and HOLES can be implemented
-  A/B with conditionals? For example, diff two otherwise identical 
-  config json files.
+  Question: are things clean enough that HOLES can be implemented
+  A/B with conditionals? For example, diff two otherwise identical config json files.
   Refactorings: 
-    NORTON boundary conditions.
     HOLES.
     Class cleanup.
     3D.
@@ -57,7 +55,7 @@ class SimControl:
     self.matls = Matls.Matls(self.config['layer_matl'])
     # TODO: Consider refactoring to split mesh into geometry and mesh
     # DELAY REFACTORING: Implement holes first.
-    self.mesh = Mesh2D.Mesh(self.config['mesh'], self.lyr, self.matls, self.config['norton'])   
+    self.mesh = Mesh2D.Mesh(self.config['mesh'], self.lyr, self.matls)   
     return
   
   def solveModel(self):

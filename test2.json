@@ -39,9 +39,9 @@
     },
     { "name": "bound",
       "type": "solid",
-      "xcond": 1000.0,
+      "xcond": 600.0,
       "xcond_unit": "W/mK",
-      "ycond": 1000.0,
+      "ycond": 600.0,
       "ycond_unit": "W/mK",
       "thickness": 10,
       "thickness_unit": "mil"
@@ -58,7 +58,7 @@
     {
       "title":"Scalable 2D thermal problem",
       "type":"scalable",
-      "xsize":6,
+      "xsize":5,
       "ysize":5,
       "active":1
     },
@@ -70,17 +70,12 @@
     }
   ],
   
-  
   "solver": {  
     "solverFlags": [
       {
         "flag": "debug",
         "setting": 1
       },
-      {
-        "flag": "useNorton",
-        "setting": 1
-      }
     ],
     "solvers": [
       {

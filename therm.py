@@ -12,7 +12,7 @@
 #        Make the spice netlist generation use a string buffer and a file.
 #        Create test harness for sweeps of problem size.
 #        Hook up PNG files.
-#        Hook up HDF5 files
+#        Hook up HDF5 files.
 #
 #        Create ASCII files for layers, materials, and mesh parameters
 #        Create master simulation file to include problem description, solvers,

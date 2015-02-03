@@ -12,8 +12,13 @@
 *.geo
 *.png
 *.mm
+*.mtx
+*.sublime-project
+*.sublime-workspace
 *.txt
 *.asc
 *.cki
+*.xcf
+*.png
 x
 restats

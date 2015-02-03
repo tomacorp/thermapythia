@@ -8,6 +8,8 @@ import numpy as np
 # Example header for array of 16 reals
 # %%MatrixMarket matrix array real general
 # 16 1
+#
+# TODO: MatrixMarket file extension should be .mtx
 
 class MatrixMarket:
     def __init__(self):
