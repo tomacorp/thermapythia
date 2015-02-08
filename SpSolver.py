@@ -1,5 +1,5 @@
 import subprocess, os
-class Spice:
+class SpSolver:
   def __init__(self, basename):
     self.simbasename= basename
     self.ckiname= self.simbasename + '.cki'
