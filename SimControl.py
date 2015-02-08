@@ -59,7 +59,7 @@ class SimControl:
     return
   
   def solveModel(self):
-    self.solv = Solver2D.Solver(self.config['solver'], self.mesh.nodeCount)
+    self.solv = Solver2D.Solver2D(self.config['solver'], self.mesh.nodeCount)
     self.solv.solve(self.lyr, self.mesh, self.matls)    
     return
     

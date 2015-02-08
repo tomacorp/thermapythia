@@ -61,13 +61,19 @@
       "type":"scalable",
       "xsize":5,
       "ysize":5,
-      "active":1
+      "active":0
     },
     {
       "title":"Bitmap 2D thermal problem",
       "inputFile":"Layout4.png",
       "type":"png",
       "active":0
+    },
+    {
+      "title":"Bitmap 2D thermal problem",
+      "inputFile":"simple11.png",
+      "type":"png",
+      "active":1
     }
   ],
   
@@ -108,14 +114,19 @@
   "outputs": {
     "active": 1,
     "mesh": { 
-       "png": ["spicedeg","deg","holeflag","heat","resis","isodeg","isoflag","spicenodenum"],
+       "png": ["holeflag","heat","resis","isodeg","isoflag","spicenodenum"],
        "interactive": ["deg"]
     },
     "deltamesh": {
        "interactive": ["deg", "spicedeg"], 
        "png": ["deg", "spicedeg"]
     },
-    "outputDirectory": "thermpypng"
+    "maskedmesh": {
+       "interactive": ["deg"],
+       "png": ["deg", "spicedeg"]
+    },
+    "outputDirectory": "thermpypng",
+    'maskLayer': 'holeflag'
   },
 
   

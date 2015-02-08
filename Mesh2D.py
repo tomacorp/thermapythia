@@ -77,12 +77,9 @@ class Mesh:
     Returns the count of cells in the square mesh.
     """
     # The node count is one more than the maximum index.
-    # getNodeAtXY starts a 0
-    # count= self.getNodeAtXY(self.width - 1, self.height - 1) + 1
     return self.nodeCount
 
-  # For HOLES these will need to be lookup tables.
-  # They will return -1 for hole locations.
+  # Return -1 for hole locations or out-of-bounds.
   def getNodeAtXY(self, x, y):
     """
     getNodeAtXY(Mesh self, int x, int y)
@@ -93,30 +90,6 @@ class Mesh:
     if (self.ifield[x, y, self.lyr.holeflag] == 1):
       return -1
     return self.ifield[x, y, self.lyr.holeflag]
-    #node= x + (y * self.width)
-    #return node
-
-  #def getXAtNode(self, node):
-    #"""
-    #def getXAtNode(Mesh self, int node)
-    #Given a node, find the x coordinate of the mesh element
-    #"""
-    #if (node > self.width * self.height - 1):
-      #return ''
-    #x = node % self.width
-    #return x
-  
-  #def getYAtNode(self, node):
-    #"""
-    #def getXAtNode(Mesh self, int node)
-    #Given a node, find the y coordinate of the mesh element
-    #"""    
-    #if (node > self.width * self.height - 1):
-      #return ''
-    #x = self.getXAtNode(node)
-    #y = node - x
-    #y = y / self.width
-    #return y
 
   def mapMeshToSolutionMatrix(self, lyr):
     """
@@ -140,14 +113,17 @@ class Mesh:
     self.nodeXn = np.zeros(self.nodeCount, dtype = 'int')
     self.nodeYn = np.zeros(self.nodeCount, dtype = 'int')
     for xn in range(0,self.width):
-      for yn in range(0, self.height): 
-        if (self.ifield[xn, yn, lyr.holeflag] >= 0):
-          self.nodeXn[self.ifield[xn, yn, lyr.holeflag]]= xn
-          self.nodeYn[self.ifield[xn, yn, lyr.holeflag]]= yn   
+      for yn in range(0, self.height):
+        nodeThis= self.ifield[xn, yn, lyr.holeflag]
+        if (nodeThis >= 0):
+          self.nodeXn[nodeThis]= xn
+          self.nodeYn[nodeThis]= yn   
     # self.nodeCount = self.getNodeAtXY(self.width - 1, self.height - 1) + 1
     print "Total number of independent nodes= ", self.nodeCount
     
   def nodeLocation(self, node):
+    if node < 0 or node >= self.nodeCount:
+      print "Node " + str(node) + " lookup is out-of-bounds from 0 to " + self.nodeCount
     return (self.nodeXn[node], self.nodeYn[node])
   
   def getNodeAtXY(self, x, y):
@@ -220,30 +196,44 @@ class Mesh:
     print "Width: " + str(width) + " Height: " + str(height)
   
     self.setMeshSize(width, height, lyr, matls)
+    self.field[:, :, lyr.isodeg] = 25.0
     self.field[:, :, lyr.resis] = matls.fr4ResistancePerSquare
   
     pix = pngproblem.load()
     copperCellCount=0
-    padCellCount=0
+    heatCellCount=0
     isoCellCount=0
+    fr4CellCount=0
+    holeCellCount=0
     for xn in range(0,width-1):
       for tyn in range(0, height-1):
         # Graphing package has +y up, png has it down
         yn= height - 1 - tyn
-        if pix[xn,yn][0] > 0: 
+        if pix[xn,yn][0] == 255 and pix[xn,yn][1] == 0 and pix[xn,yn][2]== 0: 
           self.field[xn, tyn, lyr.resis] = matls.copperResistancePerSquare
           self.field[xn, tyn, lyr.heat] = heatPerCell
           copperCellCount += 1
-          padCellCount += 1
-        if pix[xn,yn][1] > 0:
+          heatCellCount += 1
+        elif pix[xn,yn][0] == 0 and pix[xn,yn][1] == 255 and pix[xn,yn][2]== 0:
           self.field[xn, tyn, lyr.resis] = matls.copperResistancePerSquare
           copperCellCount += 1
-        if pix[xn,yn][2] > 0:
+        elif pix[xn,yn][0] == 0 and pix[xn,yn][1] == 0 and pix[xn,yn][2]== 255:
           self.ifield[xn, tyn, lyr.isoflag] = 1
+          self.field[xn, tyn, lyr.resis] = matls.copperResistancePerSquare
           self.field[xn, tyn, lyr.isodeg] = 25.0
           isoCellCount += 1
+          copperCellCount += 1
+        elif pix[xn,yn][0] == 255 and pix[xn,yn][1] == 255 and pix[xn,yn][2]== 0:
+          self.field[xn, tyn, lyr.resis] = matls.fr4ResistancePerSquare
+          fr4CellCount += 1
+        elif pix[xn,yn][0] == 255 and pix[xn,yn][1] == 255 and pix[xn,yn][2]== 255:
+          self.ifield[xn, tyn, lyr.holeflag] = -1
+          holeCellCount += 1
+        else:
+          print 'Unrecognized color: (' + str(pix[xn,yn][0]) + "," + str(pix[xn,yn][1]) + "," + str(pix[xn,yn][2]) + ') at: ' + str(xn) + ", " + str(yn)
           
-    print "Copper px: " + str(copperCellCount) + " Pad px: " + str(padCellCount) + " Iso px: " + str(isoCellCount)
+    print "Copper px: " + str(copperCellCount) + " Heat px: " + str(heatCellCount) + " Iso px: " + str(isoCellCount)
+    print "FR4 px: " + str(fr4CellCount) + " Hole px: " + str(holeCellCount)
     
   def defineTinyProblem(self, lyr, matls):
     """ 

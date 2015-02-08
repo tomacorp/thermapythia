@@ -71,13 +71,6 @@ class MatrixDiagnosticWebpage:
   
     # Counts
     counts = "<tr><td>BodyNodeCount</td><td>" + str(self.solver.BodyNodeCount) + "</td></tr>"
-    counts += "<tr><td>TopEdgeNodeCount</td><td>" + str(self.solver.TopEdgeNodeCount) + "</td></tr>"
-    counts += "<tr><td>RightEdgeNodeCount</td><td>" + str(self.solver.RightEdgeNodeCount) + "</td></tr>"
-    counts += "<tr><td>BottomEdgeNodeCount</td><td>" + str(self.solver.BottomEdgeNodeCount) + "</td></tr>"
-    counts += "<tr><td>LeftEdgeNodeCount</td><td>" + str(self.solver.LeftEdgeNodeCount) + "</td></tr>"
-    counts += "<tr><td>TopLeftCornerNodeCount</td><td>" + str(self.solver.TopLeftCornerNodeCount) + "</td></tr>"
-    counts += "<tr><td>TopRightCornerNodeCount</td><td>" + str(self.solver.TopRightCornerNodeCount) + "</td></tr>"
-    counts += "<tr><td>BottomRightCornerNodeCount</td><td>" + str(self.solver.BottomRightCornerNodeCount) + "</td></tr>"
     counts += "<tr><td>BoundaryNodeCount</td><td>" + str(self.solver.BoundaryNodeCount) + "</td></tr>"
     counts += "<tr><td>Matrix Size</td><td>" + str(self.solver.NumGlobalElements) + "</td></tr>"
     counts += "Total number of independent nodes= " + str(self.mesh.nodeCount) + "<br/>"

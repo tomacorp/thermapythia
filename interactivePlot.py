@@ -1,8 +1,10 @@
 import matplotlib.pyplot as plt
 from itertools import izip
+import os
 import numpy as np
 import Matls
 import Layers
+
 
 """
 TODO:
@@ -22,7 +24,9 @@ class InteractivePlot:
     self.lyr     = lyr
     self.mesh    = mesh
     self.config  = config
-    self.layertype= {}
+    self.outputDir = config['outputs']['outputDirectory']
+    if not os.path.exists(self.outputDir):
+      os.makedirs(self.outputDir)
     self.filename= {}
     return
   
@@ -32,15 +36,11 @@ class InteractivePlot:
       return izip(a, a)  
   
   def plotAll(self):
-    for layer in self.config['simulation_layers']:
-      self.layertype[layer['name']]= layer['type']
+    self.plotFields()  
+    self.plotDeltas()
+    self.plotMaskFields()
     
-    for device in self.config['outputs']['mesh']:
-      for output in self.config['outputs']['mesh'][device]:
-        if self.layertype[output] == 'double':
-          self.plotDoubleLayer(output, self.lyr.__dict__[output], device)
-        if self.layertype[output] == 'int':
-          self.plotIntLayer(output, self.lyr.__dict__[output], device)
+  def plotDeltas(self):
     # Plot deltas     
     for device in self.config['outputs']['deltamesh']:
       for out1, out2 in self.pairwise(self.config['outputs']['deltamesh'][device]):
@@ -48,6 +48,27 @@ class InteractivePlot:
         lyr2= self.lyr.__dict__[out2]
         plotName= device + '_' + out1 + '_' + out2
         self.plotDeltaDoubleLayer(plotName, lyr1, lyr2, device)
+        
+  def plotMaskFields(self):
+    # Plot masked layers
+    layerMask= self.config['outputs']['maskLayer']
+    for device in self.config['outputs']['maskedmesh']:
+      for lyr in self.config['outputs']['deltamesh'][device]:
+        layerIdx= self.lyr.__dict__[lyr]  #  BOGUS HARCODE FIXME TODO
+        layerMaskIdx= self.lyr.__dict__[layerMask]  #  BOGUS HARCODE FIXME TODO
+        self.plotMaskedDoubleLayer(lyr, layerMaskIdx, 25.0, layerIdx, device)
+        
+  def plotFields(self):
+    layerType= {}
+    for layer in self.config['simulation_layers']:
+      layerType[layer['name']]= layer['type']    
+    for device in self.config['outputs']['mesh']:
+      for output in self.config['outputs']['mesh'][device]:
+        if layerType[output] == 'double':
+          self.plotDoubleLayer(output, self.lyr.__dict__[output], device)
+        if layerType[output] == 'int':
+          self.plotIntLayer(output, self.lyr.__dict__[output], device)
+    
         
   def plotDoubleLayer(self, output, layerIdx, device):
     print "Plot double layer " + output + " at layer index " + str(layerIdx)
@@ -65,6 +86,42 @@ class InteractivePlot:
       self.filename[output]= self.config['outputs']['outputDirectory'] + '/' + output + '_heat_map.png'
       plt.savefig(self.filename[output])    
     return
+  
+  def plotMaskedDoubleLayer(self, output, layerMask, maskValue, layerIdx, device):
+    print "Plot masked double layer " + output + " at layer index " + str(layerIdx)
+    w, h, l= self.mesh.field.shape
+    plotfield= np.zeros((w, h), dtype='double')
+    xr, yr= np.mgrid[0:w+1, 0:h+1]
+    activeCellCount= 0
+    activeCellTotal= 0.0
+    
+    for x in range(0, w):
+      for y in range(0, h):    
+        if self.mesh.ifield[x, y, layerMask] >= 0:
+          plotfield[x, y]= self.mesh.field[x, y, layerIdx]
+          activeCellTotal += self.mesh.field[x, y, layerIdx]
+          activeCellCount += 1
+          
+    activeCellAverage = activeCellTotal / activeCellCount
+          
+    for x in range(0, w):
+      for y in range(0, h):    
+        if self.mesh.ifield[x, y, layerMask] < 0:
+          plotfield[x, y]= activeCellAverage
+          
+    plt.figure(1)
+    plt.subplot(1,1,1)
+    plt.axes(aspect=1)
+    quad2= plt.pcolormesh(self.mesh.xr, self.mesh.yr, plotfield)
+    plt.colorbar()
+    plt.title(output + ' heat map')
+    if device == 'interactive':
+      plt.draw()
+      plt.show()
+    if device == 'png':
+      self.filename[output]= self.config['outputs']['outputDirectory'] + '/' + output + '_masked_heat_map.png'
+      plt.savefig(self.filename[output])    
+    return  
   
   def plotIntLayer(self, output, layerIdx, device):
     print "Plot int layer" + output + " at layer index " + str(layerIdx)

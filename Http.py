@@ -81,18 +81,23 @@ class Index(Resource):
     
   def render_GET(self, request):
     outputMeshList= ''
+    
+    if 'deltamesh' in self.config['outputs']:
+      if 'png' in self.config['outputs']['deltamesh']:
+        for png in self.config['outputs']['deltamesh']['png']:
+          outputMeshList = outputMeshList + "<li><img src='" + self.config['outputs']['outputDirectory'] + "/" + png + "_masked_heat_map.png' /></li>"    
 
     if 'mesh' in self.config['outputs']:
       if 'png' in self.config['outputs']['mesh']:
         for png in self.config['outputs']['mesh']['png']:
-          outputMeshList = outputMeshList + "<li><img src='thermpypng/" + png + "_heat_map.png' /></li>"
+          outputMeshList = outputMeshList + "<li><img src='" + self.config['outputs']['outputDirectory'] + "/" + png + "_heat_map.png' /></li>"
 
     if 'deltamesh' in self.config['outputs']:
       if 'png' in self.config['outputs']['deltamesh']:
       
         for out1, out2 in self.pairwise(self.config['outputs']['deltamesh']['png']):
           plotName= 'png' + '_' + out1 + '_' + out2
-          outputMeshList = outputMeshList + "<li><img src='thermpypng/" + plotName + "_heat_map.png' /></li>"            
+          outputMeshList = outputMeshList + "<li><img src='" + self.config['outputs']['outputDirectory'] + "/" + plotName + "_heat_map.png' /></li>"            
     
     return """
     <html>
