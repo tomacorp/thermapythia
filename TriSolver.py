@@ -24,6 +24,9 @@ class TriSolver:
     self.b                 = Epetra.Vector(self.Map)
     self.mmPrefix          = "mm"
     self.mmExtension       = "mtx"
+    self.probFilename      = self.mmPrefix + "A." + self.mmExtension
+    self.rhsFilename       = self.mmPrefix + "RHS." + self.mmExtension
+    self.xFilename         = self.mmPrefix + "x." + self.mmExtension    
     
 
   def solveMatrixAmesos(self):
@@ -175,10 +178,6 @@ class TriSolver:
     return 0
 
   def saveMatrix(self):
-    self.probFilename = self.mmPrefix + "A." + self.mmExtension
-    self.rhsFilename = self.mmPrefix + "RHS." + self.mmExtension
-    self.xFilename = self.mmPrefix + "x." + self.mmExtension
-
     EpetraExt.RowMatrixToMatrixMarketFile(self.probFilename, self.A)   
     EpetraExt.MultiVectorToMatrixMarketFile(self.rhsFilename, self.b)
     EpetraExt.MultiVectorToMatrixMarketFile(self.xFilename, self.x)

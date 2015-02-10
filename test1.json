@@ -61,7 +61,7 @@
       "type":"scalable",
       "xsize":5,
       "ysize":5,
-      "active":0
+      "active":1
     },
     {
       "title":"Bitmap 2D thermal problem",
@@ -73,7 +73,7 @@
       "title":"Bitmap 2D thermal problem",
       "inputFile":"simple11.png",
       "type":"png",
-      "active":1
+      "active":0
     }
   ],
   

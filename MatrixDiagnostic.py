@@ -70,8 +70,7 @@ class MatrixDiagnosticWebpage:
     vectors = "<table>" + vectors + "</table>"
   
     # Counts
-    counts = "<tr><td>BodyNodeCount</td><td>" + str(self.solver.BodyNodeCount) + "</td></tr>"
-    counts += "<tr><td>BoundaryNodeCount</td><td>" + str(self.solver.BoundaryNodeCount) + "</td></tr>"
+    counts = "<tr><td>BoundaryNodeCount</td><td>" + str(self.solver.BoundaryNodeCount) + "</td></tr>"
     counts += "<tr><td>Matrix Size</td><td>" + str(self.solver.NumGlobalElements) + "</td></tr>"
     counts += "Total number of independent nodes= " + str(self.mesh.nodeCount) + "<br/>"
     counts += "Most Common number of nonzero matrix entries per row= " + str(mostCommon) + "<br/>"
