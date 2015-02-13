@@ -1,4 +1,4 @@
-from PyTrilinos import Epetra, AztecOO, Anasazi, Amesos, EpetraExt
+from PyTrilinos import Epetra, AztecOO, Anasazi, Amesos, EpetraExt, ML
 
 class TriSolver:  
   def __init__(self, nodeCount, mostCommonNonzeroEntriesPerRow, debug):
@@ -81,11 +81,26 @@ class TriSolver:
     except:
       print "Oops can't fill self.A with: " + str(self.A)
       exit
+      
+    MLList = {
+      "max levels" : 3,
+      "output" : 10,
+      "smoother: type" : "symmetric Gauss-Seidel", 
+      "aggregation: type" : "Uncoupled"
+    };
+    
+    # Create the preconditioner and compute it,
+    Prec = ML.MultiLevelPreconditioner(self.A, False)
+    Prec.SetParameterList(MLList)
+    Prec.ComputePreconditioner()
 
-    solver = AztecOO.AztecOO(self.A, self.x, self.b)
+    solver = AztecOO.AztecOO(self.A, self.x, self.b)    
+    solver.SetPrecOperator(Prec)    
+
     solver.SetAztecOption(AztecOO.AZ_solver, AztecOO.AZ_cg_condnum)
+    # solver.SetAztecOption(AztecOO.AZ_solver, AztecOO.AZ_cg)
     # This loads self.x with the solution to the problem
-    ierr = solver.Iterate(iterations, 1e-10)
+    ierr = solver.Iterate(iterations, 1e-13)
 
     if iAmRoot:
       print "Solver return status: " + str(ierr)

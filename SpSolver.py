@@ -12,6 +12,11 @@ class SpSolver:
   def appendSpiceNetlist(self, str):
     self.f.write(str)
     
+  def solveSpice(self):
+    self.finishSpiceNetlist()
+    proc= self.runSpiceNetlist()
+    proc.wait()      
+    
   def startSpiceNetlist(self):
     self.f= open(self.simbasename + '.cki', 'w')
     self.f.write("* Thermal network\n")
@@ -42,7 +47,7 @@ class SpSolver:
 #    self.readDCOperatingPoint(fraw, mesh, lyr)
 #    fraw.close()    
     
-  def readSpiceRawFile(self, lyr, mesh):
+  def loadSolutionIntoMesh(self, lyrIdx, mesh):
     """
     Method to read results from spice transient analysis ASCII raw file.
     simulation. Captures a single point in time, at or near self.sampleTime.
@@ -50,7 +55,7 @@ class SpSolver:
     fraw = self.readAsciiRawHeader(mesh)
 
     # self.readTransientTimePoint(fraw, mesh, lyr)
-    self.readDCOperatingPoint(fraw, mesh, lyr)
+    self.readDCOperatingPoint(fraw, mesh, lyrIdx)
 
     fraw.close()
 
@@ -81,7 +86,7 @@ class SpSolver:
         mesh.spiceNodeY.append(mesh.spiceNodeYName[nodename])
     return fraw
   
-  def readDCOperatingPoint(self, fraw, mesh, lyr):
+  def readDCOperatingPoint(self, fraw, mesh, lyrIdx):
     idx= 0
     # First point is just zeroes as a placeholder for time
     next(fraw)    
@@ -93,7 +98,7 @@ class SpSolver:
         # TODO: Add to mesh layer here for visualization.
         if self.debug == True:
           print str(idx) + ' ' + voltage + ' ' + str(mesh.spiceNodeX[idx]) + ' ' + str(mesh.spiceNodeY[idx])
-        mesh.field[mesh.spiceNodeX[idx], mesh.spiceNodeY[idx], lyr.spicedeg] = voltage
+        mesh.field[mesh.spiceNodeX[idx], mesh.spiceNodeY[idx], lyrIdx] = voltage
         idx += 1
       continue
 
@@ -125,3 +130,4 @@ class SpSolver:
         continue
       else:
         inTimePoint = False
+
