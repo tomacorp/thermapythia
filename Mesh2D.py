@@ -11,12 +11,28 @@ class Mesh:
   Creates a bidirectional mapping from the integer X,Y 2D space to the 1D node list
   that is used for solving the sparse matrix.
   
-  HOLES will require a two-pass approach. The first pass will count the number of nodes
+  This uses a two-pass approach. The first pass counts the number of nodes
   needed to describe the problem so that memory can be allocated in advance. The second
   pass loads the mesh data structure with the problem. Then the matrix is solved, and
   the solution data is loaded into the output, which could be the mesh, or could be
   a new data structure.
   
+  TODO: Stackup editor for web.
+  Styles:
+    Altium - good drawing, alternating left/right labels, 3D look. Shows embedding.
+    Hyperlynx - to scale, cross section, distinctive colors. Shows embedding.
+    Polar - design tool for stackups, looks like Altium. Doesn't show embedding.
+    Whatever - http://3.bp.blogspot.com/-G71R0kDY0Jk/T2t8rIId46I/AAAAAAAAAls/wlLCATtc8Js/s1600/index2.png
+    Cadence - http://community.cadence.com/cadence_technology_forums/f/27/t/22556
+    
+    Using IPC-2581 with Altium to do stackup editing:
+      http://bethesignal.com/wp/wp-content/uploads/2014/01/ECEN5224_Lecture-02_2014-01-27.pdf
+    
+    SI Lecture - http://bethesignal.com/wp/wp-content/uploads/2014/01/ECEN5224_Lecture-02_2014-01-27.pdf
+    
+    File format for stackup could be XML from IPC-2581B standard
+    
+    
   
   """
   
@@ -205,8 +221,8 @@ class Mesh:
     isoCellCount=0
     fr4CellCount=0
     holeCellCount=0
-    for xn in range(0,width-1):
-      for tyn in range(0, height-1):
+    for xn in range(0,width):
+      for tyn in range(0, height):
         # Graphing package has +y up, png has it down
         yn= height - 1 - tyn
         if pix[xn,yn][0] == 255 and pix[xn,yn][1] == 0 and pix[xn,yn][2]== 0: 

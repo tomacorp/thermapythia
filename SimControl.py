@@ -13,10 +13,6 @@ class SimControl:
   
   """
   TODO:
-  Question: are things clean enough that HOLES can be implemented
-  A/B with conditionals? For example, diff two otherwise identical config json files.
-  Refactorings: 
-    HOLES.
     Class cleanup.
     3D.
   """
@@ -40,6 +36,11 @@ class SimControl:
   Directories, such as for PNG files, go beneath this level.
   Directories that do not exist need to be created.
   These names should all go in the JSON config file.
+    roq/therm/onous/layers/layer1.png
+  The main program should launch the controller in a location.
+  The controller discovers that it is in an existing design and loads it,
+  or it discovers that it is in a new location and initializes it.
+  
   """
   
   def __init__(self):

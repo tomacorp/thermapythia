@@ -12,9 +12,11 @@
     { "index": 3, "type":"double", "name": "deg"          },
     { "index": 4, "type":"double", "name": "isodeg"       },
     { "index": 5, "type":"double", "name": "spicedeg"     },
+    { "index": 6, "type":"double", "name": "npdeg"        },
     { "index": 0, "type":"int",    "name": "isonode"      },
     { "index": 1, "type":"int",    "name": "isoflag"      },
-    { "index": 2, "type":"int",    "name": "spicenodenum" }
+    { "index": 2, "type":"int",    "name": "spicenodenum" },
+    { "index": 3, "type":"int",    "name": "holeflag"     }
   ],
   
   
@@ -60,13 +62,25 @@
       "type":"scalable",
       "xsize":5,
       "ysize":5,
-      "active":1
+      "active":0
     },
     {
       "title":"Bitmap 2D thermal problem",
       "inputFile":"Layout4.png",
       "type":"png",
       "active":0
+    },
+    {
+      "title":"Bitmap 2D thermal problem",
+      "inputFile":"simple11.png",
+      "type":"png",
+      "active":0
+    },
+    {
+      "title":"Bitmap 2D thermal problem",
+      "inputFile":"gimp_test1.png",
+      "type":"png",
+      "active":1
     }
   ],
   
@@ -74,13 +88,21 @@
     "solverFlags": [
       {
         "flag": "debug",
-        "setting": 1
+        "setting": 0
+      },
+      {
+        "flag": "webPage",
+        "setting": 0
+      },
+      {
+        "flag": "matrixMarket",
+        "setting": 0
       },
     ],
     "solvers": [
       {
         "solverName": "Spice",
-        "active": 1,
+        "active": 0,
         "simbasename": "norton"
       },
       {
@@ -89,12 +111,16 @@
       },
       {
         "solverName": "Aztec",
-        "active": 0      
+        "active": 1      
       },
       {
         "solverName": "Amesos",
+        "active": 0      
+      },
+      {
+        "solverName": "Numpy",
         "active": 1      
-      }
+      },
     ],
     "solverDebug":
     {
@@ -107,14 +133,19 @@
   "outputs": {
     "active": 1,
     "mesh": { 
-       "png": ["spicedeg","deg","heat","resis","isodeg","isoflag","spicenodenum"],
+       "png": ["holeflag","heat","resis","isodeg","isoflag","spicenodenum"],
        "interactive": ["deg"]
     },
     "deltamesh": {
-       "interactive": ["deg", "spicedeg"], 
+       "interactive": ["deg", "spicedeg", "deg", "npdeg"], 
        "png": ["deg", "spicedeg"]
     },
-    "outputDirectory": "thermpypng"
+    "maskedmesh": {
+       "interactive": ["deg", "npdeg"],
+       "png": ["deg", "spicedeg"]
+    },
+    "outputDirectory": "thermpypng",
+    'maskLayer': 'holeflag'
   },
 
   

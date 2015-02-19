@@ -21,5 +21,10 @@
 *.xcf
 *.png
 *.pxm
+*.xsd
+*.pam
+*.ppm
+*.xbm
+*.xpm
 x
 restats

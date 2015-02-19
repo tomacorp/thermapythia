@@ -7,6 +7,10 @@ import MatrixDiagnostic
 import MatrixMarket as mm
 import MMHtml
 
+# TODO: Consolidate Mesh.nodeCount and Solver2D.NumGlobalElements.
+# This needs to become a range with a starting point other than zero,
+# in order to handle the 3D case where each layer gets a range.
+# The counting is done in Mesh.mapMeshToSolutionMatrix
 
 # Numpy solver documentation: 
 # See http://docs.scipy.org/doc/numpy/reference/generated/numpy.linalg.solve.html#numpy.linalg.solve
@@ -284,17 +288,7 @@ class Solver2D:
         thisSpiceNode=   "N" + str(x) + self.s + str(y)
         thisHeatSource=   "I" + thisSpiceNode
         thisHeat= -mesh.field[x, y, lyr.heat]
-        spice.appendSpiceNetlist(thisHeatSource + " " + thisSpiceNode + " 0 DC " + str(thisHeat) + "\n")
-        
-  #def loadSolutionIntoMesh(self, lyr, mesh):
-    #"""
-    #loadSolutionIntoMesh(Solver self, Layers lyr, Mesh mesh)
-    #Load the solution back into a layer on the mesh
-    #"""
-    #for nodeThis in range(0, mesh.nodeCount):
-      #x, y= mesh.nodeLocation(nodeThis)
-      #mesh.field[x, y, lyr.deg] = self.solver.x[nodeThis]
-      ## print "Temp x y t ", x, y, self.x[nodeThis]     
+        spice.appendSpiceNetlist(thisHeatSource + " " + thisSpiceNode + " 0 DC " + str(thisHeat) + "\n")    
       
   def checkEnergyBalance(self, mesh, x, b):
     """
@@ -345,7 +339,7 @@ class Solver2D:
   def loadSolutionIntoMesh(self, lyrIdx, mesh, xs):
     """
     loadSolutionIntoMesh(Solver self, Layers lyr, Mesh mesh)
-    Load the solution back into a layer on the mesh
+    Load the solution back into a layer in the mesh
     """
     for nodeThis in range(0, mesh.nodeCount):
       x, y= mesh.nodeLocation(nodeThis)

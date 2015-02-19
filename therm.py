@@ -7,11 +7,14 @@
 # The literal ancient Greek is hot minded.
 #
 # Thermonice is like spice. Thermospice.
+
+# Thermapythia  Pythia is the oracle of Delphi. 
+
+#   Therma is feminine, Thermos masculine, thermon nueter
 #
 # TODO:  
 #        Make the spice netlist generation use a string buffer and a file.
 #        Create test harness for sweeps of problem size.
-#        Hook up PNG files.
 #        Hook up HDF5 files.
 #
 #        Create ASCII files for layers, materials, and mesh parameters
@@ -23,8 +26,6 @@
 #        Make problem 3D
 #        Make tests for 2D, put modules into separate files so that code is 
 #          shared with 3D.
-#        Separate the 2D-specific code in Solver2D.py.
-#        Separate the 2D-specific code in Spice2D.py.
 #        Create test harnesses for each module
 #        Measure xyce memory usage with 
 #          http://stackoverflow.com/questions/13607391/subprocess-memory-usage-in-python
@@ -78,14 +79,10 @@ else:
 #   Is decorated with the solution to the problem.
 # The Layer class
 #   Has enumerations that describe the layers in the Mesh
-# The Map class
-#   Includes a Numpy grid that is the size of the Solver.
-#   Is used to access Solver information 
-#   Because the solver information is not always available on the local node,
-#     the Map class has a local copy of the Solver input data. Some of this
-#     data is only needed for debugging and can be turned off to save space.
-# The Solver class
+# The TriSolver class
 #   Loads the and calls the Trilinos solvers.
+# The SpSolver class
+#   Loads the and calls the Spice solver.
 #
     
     
