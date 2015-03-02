@@ -1,8 +1,11 @@
 # These are data layers. Each entry corresponds to a 2D array with one entry per pixel.
 
+
 class Layers:
   def __init__(self, config):
     self.loadConfig(config)
+
+    self.html = ''
     return
 
   def loadConfig(self, config):
@@ -24,4 +27,5 @@ class Layers:
       lines.append('---------')
     out= "\n".join(lines)
     return out
-    
+ 
+   

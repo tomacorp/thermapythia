@@ -18,6 +18,22 @@ class SimControl:
   """
   
   """
+   ANALYSIS:
+     There are different layer types:
+       Physical, CAD
+       Physical, BOM
+       Physical, Simulation
+       Simulation, Flag
+       Simulation, Integer
+       Simulation, Float
+     The simulation layers are in Layers.py and are data-driven constructors working from SimControl json configuration.
+     The physical layers are not yet handled, but they are available and mixed in with the materials in matls.js.
+     Need to pull together the layers from test2.js and matls.js to make a more unified set of layers.
+     The challenge is the three objects need to communicate amongst themselves to initialize all three systems correctly.
+     Need a way to see them all at once and verify correctness.
+  """
+  
+  """
   TODO:
   Need clean structure of the JSON with:
     Simulation controls: HTTP server, settings
@@ -49,13 +65,12 @@ class SimControl:
     args = parser.parse_args()
     # print "Config file is: " + str(args.cfg)   
     self.configJSON= args.cfg.read()
-    self.config= yaml.load(self.configJSON) 
+    self.config= yaml.load(self.configJSON)
     
   def loadModel(self):
+    self.matls = Matls.Matls(self.config['layer_matl'], self.config['stackup'])
     self.lyr = Layers.Layers(self.config['simulation_layers'])
-    self.matls = Matls.Matls(self.config['layer_matl'])
     # TODO: Consider refactoring to split mesh into geometry and mesh
-    # DELAY REFACTORING: Implement holes first.
     self.mesh = Mesh2D.Mesh(self.config['mesh'], self.lyr, self.matls)   
     return
   

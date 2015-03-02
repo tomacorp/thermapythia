@@ -108,6 +108,7 @@ class Index(Resource):
     <li><a href="stop">Stop</a></li>
     <li><a href="htmlfile/result.html">Matrix with diagnostics</a></li>
     <li><a href="htmlfile/diri_AxRHS.html">Matrix solution</a></li>
+    <li><a href="htmlfile/stackup.html">Stackup</a></li>
     %s
     </ul>
     <!-- <img src="thermpypng/aztecOO_heat_map.png"><br />
