@@ -14,63 +14,60 @@
 "matlsDebug": { "debugWebPage": "stackup.html" },
 
 "Materials": [
-{ "name":"Al", "conductivity":"150W/m-K", "specific_heat":"0.860J/gm-K", "type":"solid", "emissivity":"0.09", "reflection_coeff":"0.93", "density":"2.70gm/cc", "specularity":"", "color":"gray"},
-{ "name":"Cu", "conductivity":"385W/m-K", "specific_heat":"0.385J/gm-K", "type":"solid", "emissivity":"0.15", "reflection_coeff":"0.63", "density":"8.93gm/cc", "specularity":"", "color":"orange"},
-{ "name":"StainlessSteel", "conductivity":"", "specific_heat":"", "emissivity":"0.16", "type":"solid", "color":"yellow"},
-{ "name":"Solder", "conductivity":"58W/m-K", "specific_heat":"0.23J/gm-K", "emissivity":"0.06", "reflection_coeff":"0.80", "density":"7.38gm/cc", "type":"solder_paste", "color":"light_gray"},
+{ "name":"Al", "conductivity":"150W/m-K", "specific_heat":"0.860J/gm-K", "type":"solid", "emissivity":"0.09", "reflection_coeff":"0.93", "density":"2.70gm/cc", "specularity":"", "color":"Silver"},
+{ "name":"Cu", "conductivity":"385W/m-K", "specific_heat":"0.385J/gm-K", "type":"solid", "emissivity":"0.15", "reflection_coeff":"0.63", "density":"8.93gm/cc", "specularity":"", "color":"IndianRed"},
+{ "name":"StainlessSteel", "conductivity":"", "specific_heat":"", "emissivity":"0.16", "type":"solid", "color":"Gold"},
+{ "name":"Solder", "conductivity":"58W/m-K", "specific_heat":"0.23J/gm-K", "emissivity":"0.06", "reflection_coeff":"0.80", "density":"7.38gm/cc", "type":"solder_paste", "color":"DimGray"},
 { "name":"Air", "conductivity":"0", "specific_heat":"0", "type":"gas", "color":"white"},
-{ "name":"ThermalPad", "conductivity":"", "type":"deformable_pad", "color":"dark_gray"},
-{ "name":"Solder_mask", "conductivity":"0.9W/m-K", "type":"solid", "thickness":"1.0mil", "color":"dark_green"},
-{ "name":"Core", "conductivityXX":".343W/m-K", "conductivityYY":".343W/m-K", "conductivityZZ":"1.059W/m-K", "density":"1.85gm/cc", "type":"solid", "emissivity":"0.9", "specularity":"", "color":"light_green"},
-{ "name":"Prepreg", "conductivity":"1.059W/m-K", "type":"deformable", "emissivity":"0.9", "specularity":"", "color":"green"},
-{ "name":"top_component", "type":"component", "max_height":"5mm", "color":"brown"},
-{ "name":"bottom_component", "type":"component", "max_height":"2mm", "color":"brown"}
+{ "name":"ThermalPad", "conductivity":"", "type":"deformable_pad", "color":"CornflowerBlue"},
+{ "name":"Solder_mask", "conductivity":"0.9W/m-K", "type":"solid", "thickness":"1.0mil", "color":"Green"},
+{ "name":"Core", "conductivityXX":".343W/m-K", "conductivityYY":".343W/m-K", "conductivityZZ":"1.059W/m-K", "density":"1.85gm/cc", "type":"solid", "emissivity":"0.9", "specularity":"", "color":"LimeGreen"},
+{ "name":"Prepreg", "conductivity":"1.059W/m-K", "type":"deformable", "emissivity":"0.9", "specularity":"", "color":"Lime"},
+{ "name":"top_component", "type":"component", "max_height":"5mm", "color":"SandyBrown"},
+{ "name":"bottom_component", "type":"component", "max_height":"2mm", "color":"SaddleBrown"}
 ],
 
 "Stackup": [
-"shield_top": {"matl":"Al", "thickness":"30mil", "type":"Rigid"},
+{ "name":"shield_top", "matl":"Al", "thickness":"30mil", "type":"Rigid"},
+{ "name":"shield_top_wall", "matl":"Al", "thickness":"6mm", "type":"Rigid"},
 
-"air_under_shield_top": { "matl":"Air", "start":"shield_top", "stop":"topside_cu", "thickness":"6mm", "type":"Fill"},
+{ "name":"topside_solder", "matl":"Solder", "thickness":"1mil", "adheres_to":"topside_cu", "type":"Coat"},
+{ "name":"topside_cu", "matl":"Cu", "thickness":"1.2mil", "type":"Rigid"},
+{ "name":"topside_prepreg", "matl":"Prepreg", "thickness":"12mil", "type":"Fill"},
 
-"thermal_pad": { "displaces":["air_under_shield_top"], "undeformed_thickness":"3mm", "type":"Fill"},
+{ "name":"side2_cu", "matl":"Cu", "thickness":"1.2mil", "displaces":"topside_prepreg", "type":"Rigid", "coverage":"1" },
+{ "name":"core1", "matl":"Core", "thickness":"12mil" , "type":"Rigid"},
+{ "name":"side3_cu", "matl":"Cu", "thickness":"1.2mil", "displaces":"side4_prepreg", "type":"Rigid", "coverage":"0.5" },
 
+{ "name":"side4_prepreg", "matl":"Prepreg", "thickness":"12mil", "type":"Fill"},
 
-"topside_components": { "displaces":["air_under_shield_top","thermal_pad"], "matl":"top_component", "height":"varies", "soldered_to_layer":"topside_cu", "type":"Fill"},
-"topside_solder": { "binds_bottom":"topside_cu", "binds_top":"topside_components", "displaces":["air_under_shield_top","thermal_pad"], "type":"Coat"},
-"topside_solder_mask": { "matl":"Solder_mask", "thickness":"1mil", "displaces":["air_under_shield_top","thermal_pad","topside_solder"], "laysatop":["topside_cu","topside_prepreg"], "type":"Coat"},
+{ "name":"side4_cu", "matl":"Cu", "thickness":"1.2mil", "displaces":"side4_prepreg", "type":"Rigid", "coverage":"0.9"},
+{ "name":"core2", "matl":"Core", "thickness":"12mil", "type":"Rigid"},
+{ "name":"side5_cu", "matl":"Cu", "thickness":"1.2mil", "displaces":"bottomside_prepreg", "type":"Rigid", "coverage":"1"},
 
-"topside_cu": { "matl":"Cu", "thickness":"1.2mil", "displaces":["air_under_shield_top","thermal_pad"], "type":"Rigid"},
-"topside_prepreg": { "matl":"Prepreg", "thickness":"12mil", "type":"Fill"},
+{ "name":"bottomside_prepreg", "matl":"Prepreg", "thickness":"12mil", "type":"Fill"},
+{ "name":"bottomside_cu", "matl":"Cu", "thickness":"1.2mil", "type":"Rigid"},
+{ "name":"bottomside_solder", "matl":"Solder", "thickness":"1mil", "adheres_to":"bottomside_cu", "type":"Coat"},
 
+{ "name":"shield_bottom_wall", "matl":"Al", "thickness":"3mm", "type":"Rigid"},
+{ "name":"shield_bottom", "matl":"Al", "thickness":"30mil", "type":"Rigid"}
+],
 
-"side2_cu": { "matl":"Cu", "thickness":"1.2mil", "displaces":["side2_prepreg"], "type":"Rigid"},
-"core1": { "matl":"Core", "thickness":"12mil" , "type":"Rigid"},
-"side3_cu": { "matl":"Cu", "thickness":"1.2mil", "displaces":["side2_prepreg"], "type":"Rigid"},
-
-"side4_prepreg": { "matl":"prepreg", "thickness":"12mil", "type":"Fill"},
-
-
-"side4_cu": { "matl":"Cu", "thickness":"1.2mil", "displaces":["side4_prepreg"], "type":"Rigid"},
-"core2": { "matl":"Core", "thickness":"12mil", "type":"Rigid"},
-"side5_cu": { "matl":"Cu", "thickness":"1.2mil", "displaces":["side4_prepreg"], "type":"Rigid"},
-
-"bottomside_prepreg": { "matl":"Prepreg", "thickness":"12mil", "type":"Fill"},
-"bottomside_cu": { "matl":"Cu", "thickness":"1.2mil", "displaces":["air_under_shield_bottom"], "type":"Rigid"},
-
-"bottomside_solder_mask": { "matl":"Solder_mask", "thickness":"1mil", "displaces":["air_under_shield_bottom","bottomside_solder"], "laysatop":["topside_cu","topside_prepreg"], "type":"Coat"},
-"bottomside_solder": { "binds_bottom":"bottomside_cu", "binds_bottom":"bottomside_components", "displaces":["air_under_shield_bottom","thermal_pad"], "type":"Coat"},
-"bottomside_components": { "displaces":["air_under_shield_bottom"], "matl":"bottom_component", "height":"varies", "soldered_to_layer":"bottomside_cu", "type":"Fill"},
-
-
-"air_under_shield_bottom": { "matl":"Air", "start":"shield_bottom", "stop":"bottomside_cu", "thickness":"3mm", "type":"Fill"},
-"shield_bottom": { "matl":"Al", "thickness":"30mil", "type":"Rigid"}
+"Embedded": [
+{ "name":"air_under_shield_top", "matl":"Air", "start":"topside_prepreg", "stop":"shield_top", "thickness":"6mm", "type":"Fill"},
+{ "name":"topside_solder_mask", "matl":"Solder_mask", "thickness":"1mil", "start":"topside_prepreg", "stop":"topside_cu", "type":"Coat"},
+{ "name":"thermal_pad", "matl":"ThermalPad", "start":"topside_components", "stop":"shield_top", "thickness":"3mm", "type":"Fill"},
+{ "name":"bottomside_solder_mask", "matl":"Solder_mask", "thickness":"1mil", "start":"bottomside_prepreg", "stop":"bottomside_cu", "type":"Coat"},
+{ "name":"bottomside_components", "start":"", "stop":"", "matl":"bottom_component", "type":"Rigid"},
+{ "name":"air_under_shield_bottom", "matl":"Air", "start":"shield_bottom", "stop":"bottomside_prepreg", "thickness":"3mm", "type":"Fill"},
+{ "name":"topside_components", "start":"topside_solder", "stop":"air_under_shield_top", "matl":"top_component", "type":"Rigid"}
 ],
 
 "Vias": [
- "shield_top_wall": {"matl": "Al", "from":"shield_top", "to":"topside_Cu"},
- "shield_bottom_wall": { "matl":"Al", "from":"shield_bottom", "to":"bottomside_Cu"},
- "thru": {"matl":"Cu", "from":"topside_cu", "to":"bottomside_cu"},
- "buried": {"matl":"Cu", "from":"side2_cu", "to":"side5_cu"},
- "screw": {"matl":"StainlessSteel", "from":"shield_top", "to":"shield_bottom"}
+{ "name": "shield_top_wall", "matl": "Al", "from":"shield_top", "to":"topside_Cu"},
+{ "name":"shield_bottom_wall", "matl":"Al", "from":"shield_bottom", "to":"bottomside_Cu"},
+{ "name": "thru", "matl":"Cu", "from":"topside_cu", "to":"bottomside_cu"},
+{ "name": "buried", "matl":"Cu", "from":"side2_cu", "to":"side5_cu"},
+{ "name": "screw", "matl":"StainlessSteel", "from":"shield_top", "to":"shield_bottom"}
 ]
 }

@@ -7,6 +7,9 @@ class Html:
   def td(self, x):
     return "<td>" + str(x) + "</td>"
   
+  def tdc(self, x, color):
+    return "<td bgcolor='" + color + "'>" + str(x) + "</td>"  
+  
   def tdh(self, x):
     return "<td bgcolor='#AAEEAA'>" + str(x) + "</td>"  
   
