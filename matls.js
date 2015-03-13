@@ -64,10 +64,12 @@
 ],
 
 "Vias": [
-{ "name": "shield_top_wall", "matl": "Al", "from":"shield_top", "to":"topside_Cu"},
-{ "name":"shield_bottom_wall", "matl":"Al", "from":"shield_bottom", "to":"bottomside_Cu"},
-{ "name": "thru", "matl":"Cu", "from":"topside_cu", "to":"bottomside_cu"},
-{ "name": "buried", "matl":"Cu", "from":"side2_cu", "to":"side5_cu"},
-{ "name": "screw", "matl":"StainlessSteel", "from":"shield_top", "to":"shield_bottom"}
+{ "name":"shield_top_wall", "matl": "Al", "from":"shield_top", "to":"topside_cu"},
+{ "name":"shield_bottom_wall", "matl":"Al", "from":"shield_bottom", "to":"bottomside_cu"},
+{ "name":"thru", "matl":"Cu", "from":"topside_cu", "to":"bottomside_cu"},
+{ "name":"buried", "matl":"Cu", "from":"side2_cu", "to":"side5_cu"},
+{ "name":"screw", "matl":"StainlessSteel", "from":"shield_top", "to":"shield_bottom"},
+{ "name":"hole", "matl":"Air", "from":"topside_cu", "to":"bottomside_cu"}
+
 ]
 }

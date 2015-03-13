@@ -8,7 +8,7 @@ from pint import UnitRegistry
 #from sets import Set
 
 # TODO: REFACTOR: This isn't really materials, since it also has geometry and layer
-# information. It is actually the boxel model class, and should be renamed.
+# information. It is actually the PC board model class, and should be renamed.
 # There might be another class for materials.
 
 # TODO: The code has to understand that:
@@ -20,9 +20,18 @@ from pint import UnitRegistry
 #  solder mask coats the top layer and the top layer copper
 
 # TODO: Handle coatings
-# TODO: Handle thermal pads
+# TODO: Handle thermal pads - 
+#         Is the way that thermal pads expand and flow easy to model?
+#         Are MEs already able to do this?
+#         If not, would they be interested in a tool that does this?
 # TODO: Handle attached parts with maximum size
 # TODO: Display graphical visualization of the stackup that is in the matls.js file.
+
+# TODO: Attached parts, especially resistors, might be handled with
+# vias for electrodes, alumina layer, metal resistance material layer.
+# The idea would be to get a picture of the oval hotspot on the top of the part.
+
+# TODO: Look at using SQLite for storing all this
 
 class Matls:
 
@@ -34,60 +43,39 @@ class Matls:
     # The new code
     self.stackup_js_fn= stackup_config['stackup_config']
     with open (self.stackup_js_fn, "r") as jsonHandle:
-      jsonContents= jsonHandle.read()    
+      jsonContents= jsonHandle.read()
+      
     self.stackup= yaml.load(jsonContents)
     # print yaml.dump(self.stackup)
 
     self.setMatlTableCols()
-    self.checkMatlProperties()
+    self.checkProperties('Materials', self.matlTableCols)
     self.setMatlTableUnits()
-    self.distributeIsotropicProperties()
-    self.convertMatlUnits()
-    self.setMatlTableDictionary()
+    self.convertUnits('Materials', self.matlTableCols, self.matlTableUnits)
+    self.matlDict= self.createTableDictionary('Materials', self.matlTableCols)
     
     self.setLayerTableCols()
-    self.setLayerTableUnits() 
-    self.convertLayerUnits()
-    self.calculateBoardThickness()
-    self.calculateLayerZCoords()
+    self.checkProperties('Stackup', self.layerTableCols)
+    self.setLayerTableUnits()
+    self.convertUnits('Stackup', self.layerTableCols, self.layerTableUnits)
+    self.layerDict= self.createTableDictionary('Stackup', self.layerTableCols)
     
-    self.setViaTableCols()  
+    self.setViaTableCols()
+    self.checkProperties('Vias', self.viaTableCols)
     self.setViaTableUnits()
-      
-  
+    self.convertUnits('Vias', self.viaTableCols, self.viaTableUnits)
+    self.viaDict= self.createTableDictionary('Vias', self.viaTableCols)
+    
+    self.distributeIsotropicProperties()
+    self.calculateBoardThickness()
+    self.calculateLayerZCoords()    
     
     if (stackup_config['debug'] == 1):
       self.createWebPage(stackup_config['webPageFileName'])
-
-    return
-
-
-  # TODO:
-  # The old code. This is tricky - by manipulating __dict__, properties are constructed,
-  # and are therefore difficult to trace throughout the code base using the IDE.
-  # Need a set of material properties to match the existing 2D code so that all this
-  # can be replaced with the new loader.
-  # There is very similar code in Layers.py.
+    
+    
+# Materials
   
-  def loadConfig(self, config):
-    for matl in config:
-      matlName= matl['name']
-      matlThickness= Units.Units.convertToMeters(matl['thickness'], matl['thickness_unit'])
-      if (matl['xcond_unit'] == 'W/mK'):
-        matlCond= matl['xcond']
-      else:
-        print 'Unknown units for material conductivity: ' + str(matl['xcond_unit'])
-        matlCond= float(NaN)
-      matlResistanceProp= matlName + 'ResistancePerSquare'
-      matlCondProp= matlName + 'Cond'
-      self.__dict__[matlResistanceProp]= 1.0 / (matlCond * matlThickness)
-      self.__dict__[matlCondProp]= matlCond
-      print matlResistanceProp + ": " + str(self.__dict__[matlResistanceProp])
-      print matlCondProp + ": " + str(matlCond)
-
-
-  
-  # Material property cleanup
   def setMatlTableCols(self):
     self.matlTableCols= ['name', 'type', 'density', 'color', 'specific_heat', 'conductivity', 'conductivityXX', 'conductivityYY', 'conductivityZZ', 'reflection_coeff', 'emissivity', 'max_height', 'thickness']    
 
@@ -95,98 +83,15 @@ class Matls:
     self.matlTableUnits= {'name':'', 'type':'', 'density':'gm/cc', 'color':'', 'specific_heat':'J/gm-K', 'conductivity':'W/m-K', 
                           'conductivityXX':'W/m-K', 'conductivityYY':'W/m-K', 'conductivityZZ':'W/m-K', 'reflection_coeff':'', 
                           'emissivity':'', 'max_height':'m', 'thickness':'m'}
-    
-  def setMatlTableDictionary(self):
-    seq= 0
-    self.matlDict= {}
-    for matl in self.stackup['Materials']:
-      self.matlDict[matl['name']]= {}
-      self.matlDict[matl['name']]['seq']= seq
-      for prop in self.matlTableCols:
-        self.matlDict[matl['name']][prop]= matl[prop]
-      seq = seq + 1
-      
-
+         
   def distributeIsotropicProperties(self):
     for matl in self.stackup['Materials']:
-      if 'conductivity' in matl:
+      if 'conductivity' in matl and str(matl['conductivity']) != '-':
         matl['conductivityXX'] = matl['conductivity']
         matl['conductivityYY'] = matl['conductivity']
         matl['conductivityZZ'] = matl['conductivity']
-
-  def convertMatlUnits(self):
-    for matl in self.stackup['Materials']:
-      for prop in self.matlTableCols:
-        if prop in matl:
-          if prop not in self.matlTableUnits:
-            propValue= matl[prop]
-            propUnits= ''
-          elif self.matlTableUnits[prop] == '':
-            propValue= matl[prop]
-            propUnits= ''
-          else:
-            propValue, propUnits=  Units.Units.convertUnits(matl[prop], self.matlTableUnits[prop]) 
-          matl[prop]= propValue
-        else:
-          matl[prop]= '-'
-  
-  def checkMatlProperties(self):
-    self.matlPropSet= Set([])
-    for matl in self.stackup['Materials']:
-      for key in matl.keys():
-        if key not in self.matlTableCols:
-          print "Unrecognized property: " + str(key) + " in config file: " + str(self.stackup_js_fn)
-          
-  # HTML generation methods  
-  def createWebPage(self, webPageFileName):
-    # np.set_printoptions(threshold='nan', linewidth=10000)
-    f= open(webPageFileName, 'w')
-    self.webpage()
-    f.write(self.html)
-    f.close()  
-
-  def webpage(self):
-    h = Html.Html()
-    head  = h.title("Stackup")
-    body  = h.h1("Materials")
-    body += self.genHTMLMatlTable(h)
-    body += h.h1("Layers")
-    body += self.genHTMLLayersTable(h)
-    body += h.h1("Vias")
-    body += self.genHTMLViaTable(h)
-    self.html= h.html(h.head(head) + h.body(body)) 
-    
-  def genHTMLMatlTable(self, h):        
-    out= h.h3('Properties')
-    matlHtml= ''
-
-    row= ''
-    for prop in self.matlTableCols:
-      row += h.tdh(prop)
-    matlHtml += h.tr(row)
-    
-    row= ''
-    for prop in self.matlTableCols:
-      row += h.tdh(self.matlTableUnits[prop])
-    matlHtml += h.tr(row)    
-    
-    for matl in self.stackup['Materials']:
-      row= ''
-      for prop in self.matlTableCols:
-        if prop in matl:
-          if prop == 'name':
-            row += h.tdh(matl[prop])
-          elif prop == 'color':
-            row += h.tdc(matl[prop], matl[prop])
-          else:
-            row += h.td(matl[prop])
-        else:
-          row += h.td('&nbsp;')
-      matlHtml += h.tr(row)
-      
-    return out + h.table(matlHtml)   
-
-# LAYERS
+        
+# Layers
 
   def setLayerTableCols(self):
     self.layerTableCols= ['name', 'matl', 'type', 'thickness', 'displaces', 'coverage',
@@ -195,22 +100,6 @@ class Matls:
   def setLayerTableUnits(self):
     self.layerTableUnits= {'name':'', 'matl':'', 'type':'', 'thickness':'m', 'displaces':'', 'coverage':'',
                            'start':'', 'stop':'', 'z_bottom':'m', 'z_top':'m', 'adheres_to':'' }
-    
-  def convertLayerUnits(self):
-    for layer in self.stackup['Stackup']:
-      for prop in self.layerTableCols:
-        if prop in layer:
-          if prop not in self.layerTableUnits:
-            propValue= layer[prop]
-            propUnits= ''
-          elif self.layerTableUnits[prop] == '':
-            propValue= layer[prop]
-            propUnits= ''
-          else:
-            propValue, propUnits=  Units.Units.convertUnits(layer[prop], self.layerTableUnits[prop]) 
-          layer[prop]= propValue
-        else:
-          layer[prop]= '-'
           
   def calculateBoardThickness(self):
     # Store coverage and thickness for adjacent fill layer calculations
@@ -274,17 +163,105 @@ class Matls:
       layer['z_bottom']= height
     return
     
+# Vias
+      
+  def setViaTableCols(self):
+    self.viaTableCols= ['name', 'matl', 'to', 'from']
+    return
+    
+  def setViaTableUnits(self):
+    self.viaTableUnits= {'name':'', 'matl':'', 'to':'', 'from':''}   
+    return
+    
+# Routines shared among Materials, Layers, and Vias
+  
+  def checkProperties(self, section, tableCols):
+    for elt in self.stackup[section]:
+      for key in elt.keys():
+        if key not in tableCols:
+          print "Unrecognized property: " + str(key) + " in config file: " + str(self.stackup_js_fn)
+            
+  def convertUnits(self, section, tableCols, tableUnits):
+    for elt in self.stackup[section]:
+      for prop in tableCols:
+        if prop in elt:
+          if prop not in tableUnits:
+            propValue= elt[prop]
+            propUnits= ''
+          elif tableUnits[prop] == '':
+            propValue= elt[prop]
+            propUnits= ''
+          else:
+            propValue, propUnits= Units.Units.convertUnits(elt[prop], tableUnits[prop])
+          elt[prop]= propValue
+        else:
+          elt[prop]= '-'           
+
+  def createTableDictionary(self, section, tableCols):
+    seq= 0
+    dict= {}
+    for elt in self.stackup[section]:
+      # print "Setting database name " + elt['name']
+      if elt['name'] in dict:
+        print "ERROR: Repeated name " + str(elt['name']) + " in section " + str(section)
+      dict[elt['name']]= {}
+      dict[elt['name']]['seq']= seq
+      for prop in tableCols:
+        dict[elt['name']][prop]= elt[prop]
+      seq = seq + 1  
+    return dict
+  
+# HTML Generation
+
+  def createWebPage(self, webPageFileName):
+    # np.set_printoptions(threshold='nan', linewidth=10000)
+    f= open(webPageFileName, 'w')
+    self.webpage()
+    f.write(self.html)
+    f.close()  
+
+  def webpage(self):
+    h = Html.Html()
+    head  = h.title("Stackup")
+    body  = h.h1("Materials")
+    body += self.genHTMLMatlTable(h)
+    body += h.h1("Layers")
+    body += self.genHTMLLayersTable(h)
+    body += h.h1("Vias")
+    body += self.genHTMLViaTable(h)
+    self.html= h.html(h.head(head) + h.body(body)) 
+  
+  def genHTMLMatlTable(self, h):        
+    out= h.h3('Properties')
+    matlHtml= ''
+
+    row= ''
+    for prop in self.matlTableCols:
+      row += h.tdh(prop)
+    matlHtml += h.tr(row)
+    
+    row= ''
+    for prop in self.matlTableCols:
+      row += h.tdh(self.matlTableUnits[prop])
+    matlHtml += h.tr(row)    
+    
+    for matl in self.stackup['Materials']:
+      row= ''
+      for prop in self.matlTableCols:
+        if prop in matl:
+          if prop == 'name':
+            row += h.tdh(matl[prop])
+          elif prop == 'color':
+            row += h.tdc(matl[prop], matl[prop])
+          else:
+            row += h.td(matl[prop])
+        else:
+          row += h.td('&nbsp;')
+      matlHtml += h.tr(row)
+      
+    return out + h.table(matlHtml)
+  
   def genHTMLLayersTable(self, h):
-    # Check for unrecognized layer properties
-    unrecognizedLayers= ''
-    layerSet= Set([])
-    for layer in self.stackup['Stackup']:
-      for key in layer.keys():
-        layerSet.add(key)    
-    for key in layerSet:   
-      if key not in self.layerTableCols:
-        unrecognizedLayers= unrecognizedLayers + "Unrecognized property: " + str(key) + " in config file: " + str(self.stackup_js_fn) + "\n"
-        
     layerHtml= ''
   
     row= ''
@@ -297,7 +274,7 @@ class Matls:
       row += h.tdh(self.layerTableUnits[prop])
     layerHtml += h.tr(row)    
     
-    # How to set a default for a layer property? Need default coverage=1
+    # How to set a default for a layer property? Would like to have default coverage=1
     thisLayerName=''
     for layer in self.stackup['Stackup']:
       row= ''
@@ -323,47 +300,12 @@ class Matls:
           # Default layer properties
           if prop == 'coverage':
             row += h.td('1.0')
-          row += h.td('&nbsp;')
+          row += h.td('&nbsp;')    
       layerHtml += h.tr(row)
       
-    return h.h3('Stackup') + h.table(layerHtml) + h.pre(unrecognizedLayers)
-
-# VIAS
-  def convertViaUnits(self):
-    for via in self.stackup['Vias']:
-      for prop in self.viaTableCols:
-        if prop in via:
-          if prop not in self.viaTableUnits:
-            propValue= via[prop]
-            propUnits= ''
-          elif self.viaTableUnits[prop] == '':
-            propValue= via[prop]
-            propUnits= ''
-          else:
-            propValue, propUnits=  Units.Units.convertUnits(via[prop], self.viaTableUnits[prop]) 
-          via[prop]= propValue
-        else:
-          via[prop]= '-'  
-          
-  def setViaTableCols(self):
-    self.viaTableCols= ['name', 'matl', 'to', 'from']
-    return
-    
-  def setViaTableUnits(self):
-    self.viaTableUnits= {'name':'', 'matl':'', 'to':'', 'from':''}   
-    return
-    
-  def genHTMLViaTable(self, h):
-    # Check for unrecognized via properties
-    unrecognizedVias= ''
-    viaSet= Set([])
-    for via in self.stackup['Vias']:
-      for key in via.keys():
-        viaSet.add(key)    
-    for key in viaSet:   
-      if key not in self.viaTableCols:
-        unrecognizedVias= unrecognizedVias + "Unrecognized property: " + str(key) + " in config file: " + str(self.stackup_js_fn) + "\n"
-        
+    return h.h3('Stackup') + h.table(layerHtml)
+  
+  def genHTMLViaTable(self, h):   
     viaHtml= ''
   
     row= ''
@@ -378,30 +320,45 @@ class Matls:
         val= '&nbsp;'
       row += h.tdh(val)
     viaHtml += h.tr(row)
-    
-    
-    
+
     for via in self.stackup['Vias']:
       row= ''
+      vianame= ''
       for prop in self.viaTableCols:
         if prop in via:
           if prop == 'name':
-            row += h.tdh(via[prop])
+            vianame= via[prop]
+            row += h.tdh(vianame)
           elif prop == 'matl':
             thisMaterialName= via[prop]
-            row += h.tdc(via[prop], self.matlDict[thisMaterialName]['color'])
+            if thisMaterialName in self.matlDict:
+              row += h.tdc(via[prop], self.matlDict[thisMaterialName]['color'])
+            else:
+              print "Via material " + str(thisMaterialName) + " not found for via " + str(vianame)
+              row += h.tdc(str(thisMaterialName), 'red')
+          elif prop == 'to':
+            toLayer= via[prop]
+            if toLayer in self.layerDict:
+              row += h.td(toLayer)
+            else:
+              print "Via 'to' layer " + str(toLayer) + " not found for via " + str(vianame)
+              row += h.tdc(str(toLayer), 'red')
+          elif prop == 'from':
+            fromLayer= via[prop]
+            if fromLayer in self.layerDict:
+              row += h.td(fromLayer)
+            else:
+              print "Via 'from' layer " + str(fromLayer) + " not found for via " + str(vianame)
+              row += h.tdc(str(fromLayer), 'red')          
           else:
             row += h.td(via[prop])
         else:
           row += h.td('&nbsp;')
-      viaHtml += h.tr(row)    
+      viaHtml += h.tr(row)
     
-    
-    
-    
-    # { "name": "shield_top_wall", "matl": "Al", "from":"shield_top", "to":"topside_Cu"},
-    return h.h3('Vias') + h.table(viaHtml) + h.pre(unrecognizedVias)
-    
+    return h.h3('Vias') + h.table(viaHtml)
+  
+  
   def helpString(self):  
     return """ 
     
@@ -432,3 +389,26 @@ class Matls:
   """ TODO: Thicknesses could come from layerMatlProps, 
   which would be a new class that has per-layer material properties. 
   """
+  
+  # TODO:
+  # The old code. This is tricky - by manipulating __dict__, properties are constructed,
+  # and are therefore difficult to trace throughout the code base using the IDE.
+  # Need a set of material properties to match the existing 2D code so that all this
+  # can be replaced with the new loader.
+  # There is very similar code in Layers.py.
+  
+  def loadConfig(self, config):
+    for matl in config:
+      matlName= matl['name']
+      matlThickness= Units.Units.convertToMeters(matl['thickness'], matl['thickness_unit'])
+      if (matl['xcond_unit'] == 'W/mK'):
+        matlCond= matl['xcond']
+      else:
+        print 'Unknown units for material conductivity: ' + str(matl['xcond_unit'])
+        matlCond= float(NaN)
+      matlResistanceProp= matlName + 'ResistancePerSquare'
+      matlCondProp= matlName + 'Cond'
+      self.__dict__[matlResistanceProp]= 1.0 / (matlCond * matlThickness)
+      self.__dict__[matlCondProp]= matlCond
+      print matlResistanceProp + ": " + str(self.__dict__[matlResistanceProp])
+      print matlCondProp + ": " + str(matlCond)  

@@ -105,7 +105,7 @@ else:
 
 #   solver = AztecOO.AztecOO(self.A, self.x, self.b)
 #   solver.SetPrecOperator(Prec)
-#   solver.SetAztecOption(AztecOO.AZ_solver, AztecOO.AZ_cg); 
+#   solver.SetAztecOption(AztecOO.AZ_solver, AztecOO.AZ_cg);
 #   solver.SetAztecOption(AztecOO.AZ_output, 16);
 #   solver.Iterate(1550, 1e-5)
 
