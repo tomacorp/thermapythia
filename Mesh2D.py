@@ -5,6 +5,9 @@ class Mesh:
   """
   Mesh: Square mesher class for thermal analysis.
   
+  Each entry corresponds to a 2D array with one entry per pixel.
+  There are two data types, flags and double.
+  
   The mesher takes a number of squares in the x and y direction and creates
   a square mesh from it.
   
@@ -16,6 +19,14 @@ class Mesh:
   pass loads the mesh data structure with the problem. Then the matrix is solved, and
   the solution data is loaded into the output, which could be the mesh, or could be
   a new data structure.
+  
+  TODO:
+  For this test code, especially the 2D test code, need to be able to specify the JSON
+  or otherwise initialize Matls, Layers, and Vias without using a JSON file.
+  Instead have the JSON or other calls inline.
+  
+  TODO:
+  See if the getProp can be factored out of Matls, Layers, and Vias.
   
   TODO: Stackup editor for web.
   Styles:
@@ -111,7 +122,7 @@ class Mesh:
     # Refactor it out of other calls.
     self.lyr= lyr
     
-  def setMeshSize(self, w, h, lyr, matls):
+  def setMeshSize(self, w, h, lyr):
     """
     __init__(Mesh self, int w, int h, Layers lyr, Matls matls)
     Create a square mesh of size w by h.
@@ -194,7 +205,7 @@ class Mesh:
     The conductivities in the problem are based on the material properties
     in the matls object.
     """
-    self.setMeshSize(x, y, lyr, matls)
+    self.setMeshSize(x, y, lyr)
     self.field[:, :, lyr.resis] = matls.fr4ResistancePerSquare
     
     # Heat source
@@ -249,11 +260,29 @@ class Mesh:
     width= xysize[0]
     height= xysize[1]
     print "Width: " + str(width) + " Height: " + str(height)
-  
-    self.setMeshSize(width, height, lyr, matls)
+    
+    fr4cond= matls.getProp('Core', 'conductivityXX')
+    fr4thick= lyr.getProp('core1', 'thickness')
+    fr4condUnits= matls.getUnits('conductivityXX')
+    fr4thickUnits= lyr.getUnits('thickness')
+    print "FR-4 Cond: " + str(fr4cond) + str(fr4condUnits)
+    print "FR-4 Thickness: " + str(fr4thick) + str(fr4thickUnits)
+    fr4res= 1.0/(fr4cond * fr4thick)
+    print "FR-4 Resistance per square: " + str(fr4res)
+    
+    cucond= matls.getProp('Cu', 'conductivity')
+    cuthick= lyr.getProp('topside_cu', 'thickness')
+    cucondUnits= matls.getUnits('conductivity')
+    cuthickUnits= lyr.getUnits('thickness')
+    print "Cu Cond: " + str(cucond) + str(cucondUnits)
+    print "Cu Thickness: " + str(cuthick) + str(cuthickUnits)
+    cures= 1.0/(cucond * cuthick)
+    print "Cu Resistance per square: " + str(cures)    
+      
+    self.setMeshSize(width, height, lyr)
     self.field[:, :, lyr.isodeg] = 25.0
-    self.field[:, :, lyr.resis] = matls.fr4ResistancePerSquare
-  
+    self.field[:, :, lyr.resis] = fr4res
+      
     pix = pngproblem.load()
     copperCellCount=0
     heatCellCount=0
@@ -265,21 +294,21 @@ class Mesh:
         # Graphing package has +y up, png has it down
         yn= height - 1 - tyn
         if pix[xn,yn][0] == 255 and pix[xn,yn][1] == 0 and pix[xn,yn][2]== 0: 
-          self.field[xn, tyn, lyr.resis] = matls.copperResistancePerSquare
+          self.field[xn, tyn, lyr.resis] = cures
           self.field[xn, tyn, lyr.heat] = heatPerCell
           copperCellCount += 1
           heatCellCount += 1
         elif pix[xn,yn][0] == 0 and pix[xn,yn][1] == 255 and pix[xn,yn][2]== 0:
-          self.field[xn, tyn, lyr.resis] = matls.copperResistancePerSquare
+          self.field[xn, tyn, lyr.resis] = cures
           copperCellCount += 1
         elif pix[xn,yn][0] == 0 and pix[xn,yn][1] == 0 and pix[xn,yn][2]== 255:
           self.ifield[xn, tyn, lyr.isoflag] = 1
-          self.field[xn, tyn, lyr.resis] = matls.copperResistancePerSquare
+          self.field[xn, tyn, lyr.resis] = cures
           self.field[xn, tyn, lyr.isodeg] = 25.0
           isoCellCount += 1
           copperCellCount += 1
         elif pix[xn,yn][0] == 255 and pix[xn,yn][1] == 255 and pix[xn,yn][2]== 0:
-          self.field[xn, tyn, lyr.resis] = matls.fr4ResistancePerSquare
+          self.field[xn, tyn, lyr.resis] = fr4res
           fr4CellCount += 1
         elif pix[xn,yn][0] == 255 and pix[xn,yn][1] == 255 and pix[xn,yn][2]== 255:
           self.ifield[xn, tyn, lyr.holeflag] = -1
@@ -295,7 +324,7 @@ class Mesh:
     defineTinyProblem(Layer lyr, Mesh mesh, Matls matls)
     Create a tiny test problem.
     """
-    self.setMeshSize(3, 3, lyr, matls)
+    self.setMeshSize(3, 3, lyr)
     self.field[:, :, lyr.resis] = matls.fr4ResistancePerSquare
     
     self.ifield[0:3, 0, lyr.isoflag] = 1

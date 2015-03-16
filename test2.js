@@ -19,12 +19,12 @@
     { "index": 3, "type":"int",    "name": "holeflag"     }
   ],
   
-  "stackup": {
+
     "webPageFileName": "stackup.html",
     "debug": 1,
-    "stackup_config": "matls.js",
-  },
-  
+    "layers_config": "layers.js",
+    "matls_config": "matls.js",
+    "vias_config": "vias.js",
   
   "layer_matl": [
     { "name": "fr4",

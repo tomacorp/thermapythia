@@ -65,23 +65,15 @@ class SimControl:
     parser = argparse.ArgumentParser()
     parser.add_argument('cfg', nargs='?', type=argparse.FileType('r'), default=sys.stdin)
     args = parser.parse_args()
-    # print "Config file is: " + str(args.cfg)   
+    print "Config file is: " + str(args.cfg)   
     self.configJSON= args.cfg.read()
     self.config= yaml.load(self.configJSON)
     
   def loadModel(self):
-    self.matls = Matls.Matls(self.config['layer_matl'], self.config['stackup'])
-    self.lyr = Layers.Layers(self.config['simulation_layers'], self.config['stackup'])
-    self.via = Vias.Vias(self.config['stackup'])
-    
-    
-    
-    # TODO: Find this in a config somewhere
-    # self.createWebPage(self.config['webPageFileName'])
-    self.createWebPage("stackup.html")
-    
-    
-    
+    self.matls = Matls.Matls(self.config['layer_matl'], self.config['matls_config'])
+    self.lyr = Layers.Layers(self.config['simulation_layers'], self.config['layers_config'])
+    self.via = Vias.Vias(self.config['vias_config'])
+    self.createWebPage(self.config['webPageFileName'])
     
     # TODO: Consider refactoring to split mesh into geometry and mesh
     self.mesh = Mesh2D.Mesh(self.config['mesh'], self.lyr, self.matls)   
@@ -99,21 +91,11 @@ class SimControl:
     head  = h.title("Stackup")
     body  = h.h1("Materials")
     body += self.matls.genHTMLMatlTable(h)
-    
-    
-    # TODO: Get html from layers object, delete layers section of Matls.py    
     body += h.h1("Layers")
     body += self.lyr.genHTMLLayersTable(self.matls, h)
-
-
-
     body += h.h1("Vias")
     body += self.via.genHTMLViaTable(self.matls, self.lyr, h)
     self.html= h.html(h.head(head) + h.body(body))   
-  
-  
-  
-  
   
   def solveModel(self):
     self.solv = Solver2D.Solver2D(self.config['solver'], self.mesh.nodeCount)

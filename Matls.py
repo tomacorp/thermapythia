@@ -3,49 +3,22 @@ import Html
 import yaml
 from PCModel import PCModel
 
-# TODO: REFACTOR: This isn't really materials, since it also has geometry and layer
-# information. It is actually the PC board model class, and should be renamed.
-# There might be another class for materials.
-
-# TODO: The code has to understand that:
-#  component height varies, and is specified in the IDF file
-#  thermal pad displaces air
-#  solder displaces air and the thermal pad
-#  solder mask displaces air, thermal pad, and solder
-#  copper displaces prepreg
-#  solder mask coats the top layer and the top layer copper
-
-# TODO: Handle coatings
-# TODO: Handle thermal pads - 
-#         Is the way that thermal pads expand and flow easy to model?
-#         Are MEs already able to do this?
-#         If not, would they be interested in a tool that does this?
-# TODO: Handle attached parts with maximum size
-# TODO: Display graphical visualization of the stackup that is in the matls.js file.
-
-# TODO: Attached parts, especially resistors, might be handled with
-# vias for electrodes, alumina layer, metal resistance material layer.
-# The idea would be to get a picture of the oval hotspot on the top of the part.
-# In this case the layer thickness would vary with different part sizes.
-
-# TODO: Look at using SQLite for storing all this
-
 class Matls(PCModel):
 
-  def __init__(self, config, stackup_config):
+  def __init__(self, config, fn):
     
     # The old code
     self.loadConfig(config)
     
     # The new code
-    self.stackup_js_fn= stackup_config['stackup_config']
+    self.stackup_js_fn= fn
     with open (self.stackup_js_fn, "r") as jsonHandle:
       jsonContents= jsonHandle.read()
       
-    self.stackup= yaml.load(jsonContents)
-    # print yaml.dump(self.stackup)
+    self.matlConfig= yaml.load(jsonContents)
+    # print yaml.dump(self.matlConfig)
     
-    self.matls= self.stackup['Materials']
+    self.matls= self.matlConfig['Materials']
 
     self.setMatlTableCols()
     self.checkProperties(self.matls, self.matlTableCols)
@@ -59,7 +32,9 @@ class Matls(PCModel):
 # Materials
   
   def setMatlTableCols(self):
-    self.matlTableCols= ['name', 'type', 'density', 'color', 'specific_heat', 'conductivity', 'conductivityXX', 'conductivityYY', 'conductivityZZ', 'reflection_coeff', 'emissivity', 'max_height', 'thickness']    
+    self.matlTableCols= ['name', 'type', 'density', 'color', 'specific_heat', 'conductivity', 
+                         'conductivityXX', 'conductivityYY', 'conductivityZZ', 'reflection_coeff', 
+                         'emissivity', 'max_height', 'thickness']    
 
   def setMatlTableUnits(self):
     self.matlTableUnits= {'name':'', 'type':'', 'density':'gm/cc', 'color':'', 'specific_heat':'J/gm-K', 'conductivity':'W/m-K', 
@@ -72,6 +47,19 @@ class Matls(PCModel):
         matl['conductivityXX'] = matl['conductivity']
         matl['conductivityYY'] = matl['conductivity']
         matl['conductivityZZ'] = matl['conductivity']
+        
+  def getProp(self, materialName, prop):
+    # return self.matlDict[materialName][prop]
+    if materialName not in self.matlDict:
+      print "Material name " + str(materialName) + " not found"
+      return ''
+    if prop not in self.matlDict[materialName]:
+      print "Property " + str(prop) + " not found in material " + str(materialName)
+      return ''
+    return self.matlDict[materialName][prop]   
+  
+  def getUnits(self, materialName):
+    return self.matlTableUnits[materialName]  
     
 # HTML Generation
   
@@ -104,37 +92,40 @@ class Matls(PCModel):
       matlHtml += h.tr(row)
       
     return out + h.table(matlHtml)
+  
+  def __str__(self):
+    out= ''
+    for matl in self.matlDict:
+      for prop in self.matlTableCols:
+        if prop in matl:
+          if prop == 'name':
+            out += str(matl[prop]) + ': '
+          else:
+            out += str(prop) + " = " + str(matl[prop]) + ", "
+      out += "\n"
+    return out
 
   def helpString(self):  
     return """ 
-    
-        Cu thermal conductivity: 401 W/(m degK)
-        Cu thickness 1.2mil
-        FR-4 thermal conductivity: 1W/(m degK)
-        FR-4 thickness 59mil
-        
-        Thermal resistance
-        
-    Need units conversion, and to account for thicknesses of layers.
+    Materials are specified in a JSON file with this format:
+      {    
+        "Materials": 
+        [
+          { 
+            "name":"Cu", "conductivity":"385W/m-K", "specific_heat":"0.385J/gm-K", "type":"solid", 
+            "emissivity":"0.15", "reflection_coeff":"0.63", "density":"8.93gm/cc", "specularity":"", 
+            "color":"IndianRed"
+          },
+          { 
+            "name":"Prepreg", "conductivity":"1.059W/m-K", "type":"deformable", "emissivity":"0.9", 
+            "specularity":"", "color":"Lime"
+          }
+        ],
+      }
+   The filename of the JSON file is passed into the __init__ and a Matls object is returned.
     
     """
-  
-  """
-  "layer_matl": [
-    { "name": "fr4",
-      "type": "solid",
-      "xcond": 1.0,
-      "xcond_unit": "W/mK",
-      "ycond": 1.0,
-      "ycond_unit": "W/mK",
-      "thickness": 59.0,
-      "thickness_unit": "mil"
-    },  
-  """
-  
-  """ TODO: Thicknesses could come from layerMatlProps, 
-  which would be a new class that has per-layer material properties. 
-  """
+
   
   # TODO:
   # The old code. This is tricky - by manipulating __dict__, properties are constructed,

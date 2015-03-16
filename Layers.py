@@ -2,22 +2,44 @@ from PCModel import PCModel
 import Html
 import yaml
 
-# These are data layers. Each entry corresponds to a 2D array with one entry per pixel.
+# OLD CODE: These are layer properties only. 
+#           
+
+# TODO: The code has to understand that:
+#  component height varies, and is specified in the IDF file
+#  thermal pad displaces air
+#  solder displaces air and the thermal pad
+#  solder mask displaces air, thermal pad, and solder
+#  copper displaces prepreg
+#  solder mask coats the top layer and the top layer copper
+
+# TODO: Handle coatings
+# TODO: Handle thermal pads - 
+#         Is the way that thermal pads expand and flow easy to model?
+#         Are MEs already able to do this?
+#         If not, would they be interested in a tool that does this?
+# TODO: Handle attached parts with maximum size
+# TODO: Display graphical visualization of the stackup that is in the layers.js file.
+
+# TODO: Attached parts, especially resistors, might be handled with
+# vias for electrodes, alumina layer, metal resistance material layer.
+# The idea would be to get a picture of the oval hotspot on the top of the part.
+# In this case the layer thickness would vary with different part sizes.
 
 class Layers(PCModel):
-  def __init__(self, config, stackup_config):
+  def __init__(self, config, fn):
     # The old code
     self.loadConfig(config)
     
     # The new code
-    self.stackup_js_fn= stackup_config['stackup_config']
+    self.stackup_js_fn= fn
     with open (self.stackup_js_fn, "r") as jsonHandle:
       jsonContents= jsonHandle.read()
       
-    self.stackup= yaml.load(jsonContents)
-    # print yaml.dump(self.stackup)
+    self.layerConfig= yaml.load(jsonContents)
+    # print yaml.dump(self.layerConfig)
     
-    self.layers= self.stackup['Stackup']
+    self.layers= self.layerConfig['Stackup']
     self.setLayerTableCols()
     self.checkProperties(self.layers, self.layerTableCols)
     self.setLayerTableUnits()
@@ -28,6 +50,18 @@ class Layers(PCModel):
     self.calculateLayerZCoords()     
     
     return
+  
+  def getProp(self, layerName, prop):
+    if layerName not in self.layerDict:
+      print "Layer name " + str(layerName) + " not found"
+      return ''
+    if prop not in self.layerDict[layerName]:
+      print "Property " + str(prop) + " not found in layer " + str(layerName)
+      return ''
+    return self.layerDict[layerName][prop]  
+  
+  def getUnits(self, layerName):
+    return self.layerTableUnits[layerName]
   
   def setLayerTableCols(self):
     self.layerTableCols= ['name', 'matl', 'type', 'thickness', 'displaces', 'coverage',
@@ -155,4 +189,18 @@ class Layers(PCModel):
         self.numdoublelayers = self.numdoublelayers + 1
       if (lyr['type'] == 'int'):
         self.numintlayers = self.numintlayers + 1
+        
+  def helpString(self):        
+    return """ 
+    Layers are specified in a JSON file with this format:
+      {    
+        "Stackup": 
+        [
+          { "name":"topside_cu", "matl":"Cu", "thickness":"1.2mil", "type":"Rigid"},
+          { "name":"core", "matl":"Core", "thickness":"12mil" , "type":"Rigid"}
+        ],
+      }
+   The filename of the JSON file is passed into the __init__ and a Layers object is returned.
+
+    """
   
