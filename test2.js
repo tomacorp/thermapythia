@@ -7,7 +7,7 @@
 
   "simulation_layers": [
     { "index": 0, "type":"double", "name": "iso"          },
-    { "index": 1, "type":"double", "name": "heat"         },
+    { "index": 1, "type":"double", "name": "heat"         },# Routines shared among Materials, Layers, and Vias
     { "index": 2, "type":"double", "name": "resis"        },
     { "index": 3, "type":"double", "name": "deg"          },
     { "index": 4, "type":"double", "name": "isodeg"       },
@@ -43,13 +43,13 @@
       "ycond": 401.0,
       "ycond_unit": "W/mK",
       "thickness": 1.2,
-      "thickness_unit": "mil"
+      "thickness_unit": "mil"# Routines shared among Materials, Layers, and Vias
     },
     { "name": "bound",
       "type": "solid",
       "xcond": 600.0,
       "xcond_unit": "W/mK",
-      "ycond": 600.0,
+      "ycond": 600.0,# Routines shared among Materials, Layers, and Vias
       "ycond_unit": "W/mK",
       "thickness": 10,
       "thickness_unit": "mil"

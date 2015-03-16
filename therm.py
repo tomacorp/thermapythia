@@ -65,7 +65,7 @@ else:
 # 300x300 154sec
 
 # 1000 iterations
-# 200x200 14sec
+# 200x200 14secvias
 # 300x300 34 sec
 # 
 # Design notes:

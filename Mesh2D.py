@@ -33,7 +33,44 @@ class Mesh:
     File format for stackup could be XML from IPC-2581B standard
     
     
-  
+  TODO: 3D meshing
+    1. Figure out how many layers there will be in the analysis.
+    The logical layers have more than one value per design or physical physical layer.
+
+    Input layer PNGs are mapped to boxels.
+    The loader first pass just counts to get the layer offsets.
+    The loader second pass loads the solver matrix.
+    The matrix solver runs.
+    The unloader loads the solution back into PNG files, matplotlib, or hdf5.
+
+    Each boxel is in a 2D XY array of boxels.
+    These arrays can be shipped to different computers to split up a problem.
+      material identifier
+      temperature from Spice solver
+      temperature from Trilinos solver
+      temperature from Numpy solver
+      node number
+      index into array of X, Y, and Z coordinates
+      layer number
+
+    Some physical layers have a
+      boundary condition flag
+      boundary condition temperature
+      boundary condition conductivity
+    
+    Ultimately there are six types of layers:
+                      int/bitfied      float
+      input
+      intermediate
+      output
+    The input is fabrication artwork, power inputs, etc.
+    Most of the input layers are bitfields, and it is possible to pack them efficiently.
+    Need access routines to make packing and unpacking easy.
+    The intermediate and output are mostly floats for numeric calculations.
+    The output could also be rendered as int/bitfield pictures.
+    
+    Could use png->hdf5->packed data structures
+    
   """
   
   # In the 3D case, there will be an offset into the big matrix for each layer.
@@ -43,9 +80,9 @@ class Mesh:
   # then getting the layer-relative offset for the occupied X,Y, and adding it to the layer
   # offset.
   #
-  # The layer-relative offsets for a given bitmap input can be computed in parallel.
+  # The layer-relative offset-less matrices for a given bitmap input can be computed in parallel.
   # They can be named or labelled with the checksum of the bitmap and cached.
-  # The offsets can be stored in a matrix market format (probably) or perhaps spatial sqlite?
+  # The layers, without the offsets, can be stored in a matrix market format (probably) or perhaps spatial sqlite?
   # When the layer calculations are complete, the offsets can be calculated, then
   # they can be brought together pairwise for parallel calculation of the
   # coupling terms between the pairs.
@@ -203,6 +240,8 @@ class Mesh:
   def definePNGProblem(self, fn, lyr, matls):
     """
     Read a PNG file and load the data structure
+    pix from Image module is getting mapped into field and ifield 2D layer structs.
+
     """
     heatPerCell= 48e-6
     pngproblem = Image.open(fn, mode='r')
