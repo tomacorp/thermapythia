@@ -3,6 +3,7 @@ import argparse
 import sys
 import Layers
 import Matls
+import Vias
 import Mesh2D
 import Solver2D
 import InteractivePlot
@@ -71,6 +72,7 @@ class SimControl:
   def loadModel(self):
     self.matls = Matls.Matls(self.config['layer_matl'], self.config['stackup'])
     self.lyr = Layers.Layers(self.config['simulation_layers'], self.config['stackup'])
+    self.via = Vias.Vias(self.config['stackup'])
     
     
     
@@ -106,7 +108,7 @@ class SimControl:
 
 
     body += h.h1("Vias")
-    body += self.matls.genHTMLViaTable(self.lyr, h)
+    body += self.via.genHTMLViaTable(self.matls, self.lyr, h)
     self.html= h.html(h.head(head) + h.body(body))   
   
   

@@ -2,11 +2,6 @@ import Units
 import Html
 import yaml
 from PCModel import PCModel
-from sets import Set
-from pint import UnitRegistry
-#from pygraph.classes.graph import graph
-#from pygraph.algorithms.minmax import shortest_path
-#from sets import Set
 
 # TODO: REFACTOR: This isn't really materials, since it also has geometry and layer
 # information. It is actually the PC board model class, and should be renamed.
@@ -51,8 +46,6 @@ class Matls(PCModel):
     # print yaml.dump(self.stackup)
     
     self.matls= self.stackup['Materials']
-    self.layers= self.stackup['Stackup']
-    self.vias= self.stackup['Vias']
 
     self.setMatlTableCols()
     self.checkProperties(self.matls, self.matlTableCols)
@@ -60,16 +53,7 @@ class Matls(PCModel):
     self.convertUnits(self.matls, self.matlTableCols, self.matlTableUnits)
     self.matlDict= self.createTableDictionary(self.matls, self.matlTableCols)
     
-    self.setViaTableCols()
-    self.checkProperties(self.vias, self.viaTableCols)
-    self.setViaTableUnits()
-    self.convertUnits(self.vias, self.viaTableCols, self.viaTableUnits)
-    self.viaDict= self.createTableDictionary(self.vias, self.viaTableCols)
-    
     self.distributeIsotropicProperties()
-    
-    #if (stackup_config['debug'] == 1):
-      #self.createWebPage(stackup_config['webPageFileName'])
     
     
 # Materials
@@ -88,16 +72,6 @@ class Matls(PCModel):
         matl['conductivityXX'] = matl['conductivity']
         matl['conductivityYY'] = matl['conductivity']
         matl['conductivityZZ'] = matl['conductivity']
-    
-# Vias
-      
-  def setViaTableCols(self):
-    self.viaTableCols= ['name', 'matl', 'to', 'from']
-    return
-    
-  def setViaTableUnits(self):
-    self.viaTableUnits= {'name':'', 'matl':'', 'to':'', 'from':''}   
-    return
     
 # HTML Generation
   
@@ -130,61 +104,7 @@ class Matls(PCModel):
       matlHtml += h.tr(row)
       
     return out + h.table(matlHtml)
-  
-  def genHTMLViaTable(self, lyr, h):   
-    viaHtml= ''
-  
-    row= ''
-    for prop in self.viaTableCols:
-      row += h.tdh(prop)
-    viaHtml += h.tr(row)
-    
-    row= ''
-    for prop in self.viaTableCols:
-      val= self.viaTableUnits[prop]
-      if val == '':
-        val= '&nbsp;'
-      row += h.tdh(val)
-    viaHtml += h.tr(row)
 
-    for via in self.vias:
-      row= ''
-      vianame= ''
-      for prop in self.viaTableCols:
-        if prop in via:
-          if prop == 'name':
-            vianame= via[prop]
-            row += h.tdh(vianame)
-          elif prop == 'matl':
-            thisMaterialName= via[prop]
-            if thisMaterialName in self.matlDict:
-              row += h.tdc(via[prop], self.matlDict[thisMaterialName]['color'])
-            else:
-              print "Via material " + str(thisMaterialName) + " not found for via " + str(vianame)
-              row += h.tdc(str(thisMaterialName), 'red')
-          elif prop == 'to':
-            toLayer= via[prop]
-            if toLayer in lyr.layerDict:
-              row += h.td(toLayer)
-            else:
-              print "Via 'to' layer " + str(toLayer) + " not found for via " + str(vianame)
-              row += h.tdc(str(toLayer), 'red')
-          elif prop == 'from':
-            fromLayer= via[prop]
-            if fromLayer in lyr.layerDict:
-              row += h.td(fromLayer)
-            else:
-              print "Via 'from' layer " + str(fromLayer) + " not found for via " + str(vianame)
-              row += h.tdc(str(fromLayer), 'red')          
-          else:
-            row += h.td(via[prop])
-        else:
-          row += h.td('&nbsp;')
-      viaHtml += h.tr(row)
-    
-    return h.h3('Vias') + h.table(viaHtml)
-  
-  
   def helpString(self):  
     return """ 
     
