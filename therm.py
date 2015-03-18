@@ -83,9 +83,7 @@ else:
 #   Loads the and calls the Trilinos solvers.
 # The SpSolver class
 #   Loads the and calls the Spice solver.
-#
-    
-    
+#   
 # This is from http://trilinos.sandia.gov/packages/pytrilinos/UsersGuide.pdf pg 20
 #   self.x = Epetra.Vector(self.Map)
 #   self.A.FillComplete()

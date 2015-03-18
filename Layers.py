@@ -32,8 +32,8 @@ class Layers(PCModel):
     self.loadConfig(config)
     
     # The new code
-    self.stackup_js_fn= fn
-    with open (self.stackup_js_fn, "r") as jsonHandle:
+    self.config_js_fn= fn
+    with open (self.config_js_fn, "r") as jsonHandle:
       jsonContents= jsonHandle.read()
       
     self.layerConfig= yaml.load(jsonContents)
@@ -41,34 +41,22 @@ class Layers(PCModel):
     
     self.layers= self.layerConfig['Stackup']
     self.setLayerTableCols()
-    self.checkProperties(self.layers, self.layerTableCols)
+    self.checkProperties(self.layers, self.tableCols)
     self.setLayerTableUnits()
-    self.convertUnits(self.layers, self.layerTableCols, self.layerTableUnits)
-    self.layerDict= self.createTableDictionary(self.layers, self.layerTableCols)    
+    self.convertUnits(self.layers, self.tableCols, self.tableUnits)
+    self.propDict= self.createTableDictionary(self.layers, self.tableCols)    
     
     self.calculateBoardThickness()
     self.calculateLayerZCoords()     
     
     return
   
-  def getProp(self, layerName, prop):
-    if layerName not in self.layerDict:
-      print "Layer name " + str(layerName) + " not found"
-      return ''
-    if prop not in self.layerDict[layerName]:
-      print "Property " + str(prop) + " not found in layer " + str(layerName)
-      return ''
-    return self.layerDict[layerName][prop]  
-  
-  def getUnits(self, layerName):
-    return self.layerTableUnits[layerName]
-  
   def setLayerTableCols(self):
-    self.layerTableCols= ['name', 'matl', 'type', 'thickness', 'displaces', 'coverage',
+    self.tableCols= ['name', 'matl', 'type', 'thickness', 'displaces', 'coverage',
                           'z_bottom', 'z_top', 'adheres_to']
     
   def setLayerTableUnits(self):
-    self.layerTableUnits= {'name':'', 'matl':'', 'type':'', 'thickness':'m', 'displaces':'', 'coverage':'',
+    self.tableUnits= {'name':'', 'matl':'', 'type':'', 'thickness':'m', 'displaces':'', 'coverage':'',
                            'start':'', 'stop':'', 'z_bottom':'m', 'z_top':'m', 'adheres_to':'' }
           
   def calculateBoardThickness(self):
@@ -138,29 +126,29 @@ class Layers(PCModel):
     layerHtml= ''
   
     row= ''
-    for prop in self.layerTableCols:
+    for prop in self.tableCols:
       row += h.tdh(prop)
     layerHtml += h.tr(row)
     
     row= ''
-    for prop in self.layerTableCols:
-      row += h.tdh(self.layerTableUnits[prop])
+    for prop in self.tableCols:
+      row += h.tdh(self.tableUnits[prop])
     layerHtml += h.tr(row)    
     
     # How to set a default for a layer property? Would like to have default coverage=1
     thisLayerName=''
     for layer in self.layers:
       row= ''
-      for prop in self.layerTableCols:
+      for prop in self.tableCols:
         if prop in layer:
           if prop == 'name':
             row += h.tdh(layer[prop])
             thisLayerName= layer[prop]
           elif prop == 'matl':
             thisMaterialName= layer[prop]
-            if thisMaterialName in matl.matlDict:
-              if 'color' in matl.matlDict[thisMaterialName]:
-                row += h.tdc(layer[prop], matl.matlDict[thisMaterialName]['color'])
+            if thisMaterialName in matl.propDict:
+              if 'color' in matl.propDict[thisMaterialName]:
+                row += h.tdc(layer[prop], matl.propDict[thisMaterialName]['color'])
               else:
                 print "No color set for material: " + str(thisMaterialName) + " in layer " + str(thisLayerName)
                 row += h.tdc(layer[prop], 'yellow')
@@ -178,7 +166,9 @@ class Layers(PCModel):
       
     return h.h3('Stackup') + h.table(layerHtml)  
   
-  # The old code
+  # The old code. 
+  # These are actually the simulation layers, and should be a different object from the
+  # PC board physical stackup.
   
   def loadConfig(self, config):
     self.numdoublelayers= 0

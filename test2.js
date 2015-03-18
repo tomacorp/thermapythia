@@ -3,57 +3,32 @@
 
   "showProfile": 1,
   "profileFilename": "profile.txt",
+  "webPageFileName": "stackup.html",
+  "debug": 1,
+  "layers_config": "layers.js",
+  "matls_config": "matls.js",
+  "vias_config": "vias.js",
 
+  
+  "http": {
+    "httpPort": 8880,
+    "useHttp": 1,
+    "popBrowser": 1
+  },
 
   "simulation_layers": [
     { "index": 0, "type":"double", "name": "iso"          },
-    { "index": 1, "type":"double", "name": "heat"         },# Routines shared among Materials, Layers, and Vias
+    { "index": 1, "type":"double", "name": "heat"         },
     { "index": 2, "type":"double", "name": "resis"        },
     { "index": 3, "type":"double", "name": "deg"          },
     { "index": 4, "type":"double", "name": "isodeg"       },
     { "index": 5, "type":"double", "name": "spicedeg"     },
     { "index": 6, "type":"double", "name": "npdeg"        },
+    { "index": 7, "type":"double", "name": "boundCond"    },
     { "index": 0, "type":"int",    "name": "isonode"      },
     { "index": 1, "type":"int",    "name": "isoflag"      },
     { "index": 2, "type":"int",    "name": "spicenodenum" },
     { "index": 3, "type":"int",    "name": "holeflag"     }
-  ],
-  
-
-    "webPageFileName": "stackup.html",
-    "debug": 1,
-    "layers_config": "layers.js",
-    "matls_config": "matls.js",
-    "vias_config": "vias.js",
-  
-  "layer_matl": [
-    { "name": "fr4",
-      "type": "solid",
-      "xcond": 1.0,
-      "xcond_unit": "W/mK",
-      "ycond": 1.0,
-      "ycond_unit": "W/mK",
-      "thickness": 59.0,
-      "thickness_unit": "mil"
-    },
-    { "name": "copper",
-      "type": "solid",
-      "xcond": 401.0,
-      "xcond_unit": "W/mK",
-      "ycond": 401.0,
-      "ycond_unit": "W/mK",
-      "thickness": 1.2,
-      "thickness_unit": "mil"# Routines shared among Materials, Layers, and Vias
-    },
-    { "name": "bound",
-      "type": "solid",
-      "xcond": 600.0,
-      "xcond_unit": "W/mK",
-      "ycond": 600.0,# Routines shared among Materials, Layers, and Vias
-      "ycond_unit": "W/mK",
-      "thickness": 10,
-      "thickness_unit": "mil"
-    }
   ],
   
   "mesh": [
@@ -67,18 +42,6 @@
       "type":"scalable",
       "xsize":5,
       "ysize":5,
-      "active":0
-    },
-    {
-      "title":"Bitmap 2D thermal problem",
-      "inputFile":"Layout4.png",
-      "type":"png",
-      "active":0
-    },
-    {
-      "title":"Bitmap 2D thermal problem",
-      "inputFile":"simple11.png",
-      "type":"png",
       "active":0
     },
     {
@@ -140,12 +103,11 @@
     }
   },
 
-
   "outputs": {
     "active": 1,
     "mesh": { 
-       "png": ["holeflag","heat","resis","isodeg","isoflag","spicenodenum"],
-       "interactive": ["deg"]
+       "png": ["deg", "holeflag","heat","resis","isodeg","isoflag","spicenodenum"],
+       "interactive": []
     },
     "deltamesh": {
        "interactive": [], 
@@ -157,14 +119,6 @@
     },
     "outputDirectory": "thermpypng",
     'maskLayer': 'holeflag'
-  },
-
-  
-  "http": {
-    "httpPort": 8880,
-    "useHttp": 1,
-    "popBrowser": 1
   }
-  
 
 }

@@ -5,14 +5,14 @@ from PCModel import PCModel
 
 class Matls(PCModel):
 
-  def __init__(self, config, fn):
+  def __init__(self, fn):
     
-    # The old code
-    self.loadConfig(config)
+    self.rowName= "material"
+    self.colName= "property"   
+    self.config_js_fn= fn
     
-    # The new code
-    self.stackup_js_fn= fn
-    with open (self.stackup_js_fn, "r") as jsonHandle:
+    
+    with open (self.config_js_fn, "r") as jsonHandle:
       jsonContents= jsonHandle.read()
       
     self.matlConfig= yaml.load(jsonContents)
@@ -21,23 +21,22 @@ class Matls(PCModel):
     self.matls= self.matlConfig['Materials']
 
     self.setMatlTableCols()
-    self.checkProperties(self.matls, self.matlTableCols)
+    self.checkProperties(self.matls, self.tableCols)
     self.setMatlTableUnits()
-    self.convertUnits(self.matls, self.matlTableCols, self.matlTableUnits)
-    self.matlDict= self.createTableDictionary(self.matls, self.matlTableCols)
+    self.convertUnits(self.matls, self.tableCols, self.tableUnits)
+    self.propDict= self.createTableDictionary(self.matls, self.tableCols)
     
     self.distributeIsotropicProperties()
-    
     
 # Materials
   
   def setMatlTableCols(self):
-    self.matlTableCols= ['name', 'type', 'density', 'color', 'specific_heat', 'conductivity', 
+    self.tableCols= ['name', 'type', 'density', 'color', 'specific_heat', 'conductivity', 
                          'conductivityXX', 'conductivityYY', 'conductivityZZ', 'reflection_coeff', 
                          'emissivity', 'max_height', 'thickness']    
 
   def setMatlTableUnits(self):
-    self.matlTableUnits= {'name':'', 'type':'', 'density':'gm/cc', 'color':'', 'specific_heat':'J/gm-K', 'conductivity':'W/m-K', 
+    self.tableUnits= {'name':'', 'type':'', 'density':'gm/cc', 'color':'', 'specific_heat':'J/gm-K', 'conductivity':'W/m-K', 
                           'conductivityXX':'W/m-K', 'conductivityYY':'W/m-K', 'conductivityZZ':'W/m-K', 'reflection_coeff':'', 
                           'emissivity':'', 'max_height':'m', 'thickness':'m'}
          
@@ -48,19 +47,6 @@ class Matls(PCModel):
         matl['conductivityYY'] = matl['conductivity']
         matl['conductivityZZ'] = matl['conductivity']
         
-  def getProp(self, materialName, prop):
-    # return self.matlDict[materialName][prop]
-    if materialName not in self.matlDict:
-      print "Material name " + str(materialName) + " not found"
-      return ''
-    if prop not in self.matlDict[materialName]:
-      print "Property " + str(prop) + " not found in material " + str(materialName)
-      return ''
-    return self.matlDict[materialName][prop]   
-  
-  def getUnits(self, materialName):
-    return self.matlTableUnits[materialName]  
-    
 # HTML Generation
   
   def genHTMLMatlTable(self, h):        
@@ -68,18 +54,18 @@ class Matls(PCModel):
     matlHtml= ''
 
     row= ''
-    for prop in self.matlTableCols:
+    for prop in self.tableCols:
       row += h.tdh(prop)
     matlHtml += h.tr(row)
     
     row= ''
-    for prop in self.matlTableCols:
-      row += h.tdh(self.matlTableUnits[prop])
+    for prop in self.tableCols:
+      row += h.tdh(self.tableUnits[prop])
     matlHtml += h.tr(row)    
     
     for matl in self.matls:
       row= ''
-      for prop in self.matlTableCols:
+      for prop in self.tableCols:
         if prop in matl:
           if prop == 'name':
             row += h.tdh(matl[prop])
@@ -93,17 +79,7 @@ class Matls(PCModel):
       
     return out + h.table(matlHtml)
   
-  def __str__(self):
-    out= ''
-    for matl in self.matlDict:
-      for prop in self.matlTableCols:
-        if prop in matl:
-          if prop == 'name':
-            out += str(matl[prop]) + ': '
-          else:
-            out += str(prop) + " = " + str(matl[prop]) + ", "
-      out += "\n"
-    return out
+
 
   def helpString(self):  
     return """ 
@@ -134,18 +110,18 @@ class Matls(PCModel):
   # can be replaced with the new loader.
   # There is very similar code in Layers.py.
   
-  def loadConfig(self, config):
-    for matl in config:
-      matlName= matl['name']
-      matlThickness= Units.Units.convertToMeters(matl['thickness'], matl['thickness_unit'])
-      if (matl['xcond_unit'] == 'W/mK'):
-        matlCond= matl['xcond']
-      else:
-        print 'Unknown units for material conductivity: ' + str(matl['xcond_unit'])
-        matlCond= float(NaN)
-      matlResistanceProp= matlName + 'ResistancePerSquare'
-      matlCondProp= matlName + 'Cond'
-      self.__dict__[matlResistanceProp]= 1.0 / (matlCond * matlThickness)
-      self.__dict__[matlCondProp]= matlCond
-      print matlResistanceProp + ": " + str(self.__dict__[matlResistanceProp])
-      print matlCondProp + ": " + str(matlCond)  
+  #def loadConfig(self, config):
+    #for matl in config:
+      #matlName= matl['name']
+      #matlThickness= Units.Units.convertToMeters(matl['thickness'], matl['thickness_unit'])
+      #if (matl['xcond_unit'] == 'W/mK'):
+        #matlCond= matl['xcond']
+      #else:
+        #print 'Unknown units for material conductivity: ' + str(matl['xcond_unit'])
+        #matlCond= float(NaN)
+      #matlResistanceProp= matlName + 'ResistancePerSquare'
+      #matlCondProp= matlName + 'Cond'
+      #self.__dict__[matlResistanceProp]= 1.0 / (matlCond * matlThickness)
+      #self.__dict__[matlCondProp]= matlCond
+      #print matlResistanceProp + ": " + str(self.__dict__[matlResistanceProp])
+      #print matlCondProp + ": " + str(matlCond)  

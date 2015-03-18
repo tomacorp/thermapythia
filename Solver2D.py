@@ -179,7 +179,8 @@ class Solver2D:
         # The node at x, y gets on-diagonal conductance incremented by the amount of conductance in the boundary.
         # The Norton equivalent current source I is V*R which is mesh.field[x, y, lyr.isodeg] * matls.boundCond        
         self.boundaryCondVec[nodeThis] = mesh.field[x, y, lyr.isodeg]
-        self.boundaryCondMatl[nodeThis] = matls.boundCond  
+        # self.boundaryCondMatl[nodeThis] = matls.boundCond  
+        self.boundaryCondMatl[nodeThis] = mesh.field[x, y, lyr.boundCond]
         self.BoundaryNodeCount += 1
       else:
         self.boundaryCondVec[nodeThis] = -512.0
@@ -229,9 +230,11 @@ class Solver2D:
 
       if (mesh.ifield[x, y, lyr.isoflag] == 1):
         # The node at x, y gets on-diagonal conductance incremented by the amount of conductance in the boundary.
-        # b is the RHS. It gets the current source which is mesh.field[x, y, lyr.isodeg] * matls.boundCond        
-        GNode = GNode + matls.boundCond
-        b[nodeThis] = mesh.field[x, y, lyr.isodeg] * matls.boundCond
+        # b is the RHS. It gets the current source which is mesh.field[x, y, lyr.isodeg] * matls.boundCond  
+        boundaryCond= mesh.field[x, y, lyr.boundCond]
+        GNode = GNode + boundaryCond
+        # b[nodeThis] = mesh.field[x, y, lyr.isodeg] * matls.boundCond
+        b[nodeThis] = mesh.field[x, y, lyr.isodeg] * boundaryCond
       else:
         b[nodeThis] = 0.0
 
@@ -272,9 +275,11 @@ class Solver2D:
       
         thisBoundaryNode=  "NDIRI" + self.s + str(x) + self.s + str(y)
         thisBoundaryResistor=  "RDIRI" + self.s + str(x) + self.s + str(y)
-        thisBoundaryResistance= 1.0/matls.boundCond
+        # thisBoundaryResistance= 1.0/matls.boundCond
+        thisBoundaryResistance= 1.0/mesh.field[x, y, lyr.boundCond]
       
-        thisBoundaryCurrent= mesh.field[x, y, lyr.isodeg] * matls.boundCond
+        thisBoundaryCurrent= mesh.field[x, y, lyr.isodeg] * mesh.field[x, y, lyr.boundCond]
+        # thisBoundaryCurrent= mesh.field[x, y, lyr.isodeg] * matls.boundCond
         spice.appendSpiceNetlist(thisIsoSource + " 0 " + thisSpiceNode + " DC " + str(thisBoundaryCurrent) + "\n")
         spice.appendSpiceNetlist(thisBoundaryResistor + " " + thisSpiceNode + " 0 " + str(thisBoundaryResistance) + "\n")  
         

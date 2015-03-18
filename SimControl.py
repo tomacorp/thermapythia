@@ -20,19 +20,18 @@ class SimControl:
   """
   
   """
-   ANALYSIS:
-     There are different layer types:
-       Physical, CAD
-       Physical, BOM
-       Physical, Simulation
-       Simulation, Flag
-       Simulation, Integer
-       Simulation, Float
-     The simulation layers are in Layers.py and are data-driven constructors working from SimControl json configuration.
-     The physical layers are not yet handled, but they are available and mixed in with the materials in matls.js.
-     Need to pull together the layers from test2.js and matls.js to make a more unified set of layers.
-     The challenge is the three objects need to communicate amongst themselves to initialize all three systems correctly.
-     Need a way to see them all at once and verify correctness.
+  ANALYSIS:
+    There are different layer types:
+      Physical, CAD
+      Physical, BOM
+      Physical, Simulation
+      Simulation, Flag
+      Simulation, Integer
+      Simulation, Float
+    The simulation layers are in Mesh2D.py and are data-driven constructors working from SimControl json configuration.
+    The physical CAD layers are described in matls.js, layers.js, and vias.js.
+    This description data is loaded in Matls.py, Layers.py, and Vias.py.
+    To see them all at once and verify correctness, and HTML table is generated for each one, and is displayed by SimControl.py.
   """
   
   """
@@ -58,7 +57,6 @@ class SimControl:
   The main program should launch the controller in a location.
   The controller discovers that it is in an existing design and loads it,
   or it discovers that it is in a new location and initializes it.
-  
   """
   
   def __init__(self):
@@ -70,7 +68,11 @@ class SimControl:
     self.config= yaml.load(self.configJSON)
     
   def loadModel(self):
-    self.matls = Matls.Matls(self.config['layer_matl'], self.config['matls_config'])
+    self.matls = Matls.Matls(self.config['matls_config'])
+    # BOM Layers: Manufacturer's BOM, for example with three layers that stack to make a single core.
+    # CAD Layers: Data from CAD source, could also include drills, for example.
+    # Physical Layers: PhyLayers: 2D multilayer bitmap representation of the design. This is a solid model.
+    # Thermal Simulation Layers: Thermapythia layers: Values used to load the matrix, flags, etc.
     self.lyr = Layers.Layers(self.config['simulation_layers'], self.config['layers_config'])
     self.via = Vias.Vias(self.config['vias_config'])
     self.createWebPage(self.config['webPageFileName'])

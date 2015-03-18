@@ -13,6 +13,7 @@
  
 "matlsDebug": { "debugWebPage": "stackup.html" },
 
+
 "Materials": [
 { "name":"Al", "conductivity":"150W/m-K", "specific_heat":"0.860J/gm-K", "type":"solid", "emissivity":"0.09", "reflection_coeff":"0.93", "density":"2.70gm/cc", "specularity":"", "color":"Silver"},
 { "name":"Cu", "conductivity":"385W/m-K", "specific_heat":"0.385J/gm-K", "type":"solid", "emissivity":"0.15", "reflection_coeff":"0.63", "density":"8.93gm/cc", "specularity":"", "color":"IndianRed"},

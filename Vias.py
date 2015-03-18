@@ -62,21 +62,21 @@ class Vias(PCModel):
             row += h.tdh(vianame)
           elif prop == 'matl':
             thisMaterialName= via[prop]
-            if thisMaterialName in matl.matlDict:
-              row += h.tdc(via[prop], matl.matlDict[thisMaterialName]['color'])
+            if thisMaterialName in matl.propDict:
+              row += h.tdc(via[prop], matl.propDict[thisMaterialName]['color'])
             else:
               print "Via material " + str(thisMaterialName) + " not found for via " + str(vianame)
               row += h.tdc(str(thisMaterialName), 'red')
           elif prop == 'to':
             toLayer= via[prop]
-            if toLayer in lyr.layerDict:
+            if toLayer in lyr.propDict:
               row += h.td(toLayer)
             else:
               print "Via 'to' layer " + str(toLayer) + " not found for via " + str(vianame)
               row += h.tdc(str(toLayer), 'red')
           elif prop == 'from':
             fromLayer= via[prop]
-            if fromLayer in lyr.layerDict:
+            if fromLayer in lyr.propDict:
               row += h.td(fromLayer)
             else:
               print "Via 'from' layer " + str(fromLayer) + " not found for via " + str(vianame)

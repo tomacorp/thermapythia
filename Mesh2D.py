@@ -26,6 +26,9 @@ class Mesh:
   Instead have the JSON or other calls inline.
   
   TODO:
+  A nonzero boundary conductivity can be used instead of the flag lyr.isodeg.
+  
+  TODO:
   See if the getProp can be factored out of Matls, Layers, and Vias.
   
   TODO: Stackup editor for web.
@@ -205,8 +208,27 @@ class Mesh:
     The conductivities in the problem are based on the material properties
     in the matls object.
     """
+    
+    fr4cond= matls.getProp('Core', 'conductivityXX')
+    fr4thick= lyr.getProp('core1', 'thickness')
+    fr4condUnits= matls.getUnits('conductivityXX')
+    fr4thickUnits= lyr.getUnits('thickness')
+    print "FR-4 Cond: " + str(fr4cond) + str(fr4condUnits)
+    print "FR-4 Thickness: " + str(fr4thick) + str(fr4thickUnits)
+    fr4res= 1.0/(fr4cond * fr4thick)
+    print "FR-4 Resistance per square: " + str(fr4res)  
+    
+    cucond= matls.getProp('Cu', 'conductivity')
+    cuthick= lyr.getProp('topside_cu', 'thickness')
+    cucondUnits= matls.getUnits('conductivity')
+    cuthickUnits= lyr.getUnits('thickness')
+    print "Cu Cond: " + str(cucond) + str(cucondUnits)
+    print "Cu Thickness: " + str(cuthick) + str(cuthickUnits)
+    cures= 1.0/(cucond * cuthick)
+    print "Cu Resistance per square: " + str(cures)      
+    
     self.setMeshSize(x, y, lyr)
-    self.field[:, :, lyr.resis] = matls.fr4ResistancePerSquare
+    self.field[:, :, lyr.resis] = fr4res
     
     # Heat source
     hsx= 0.5
@@ -222,17 +244,23 @@ class Mesh:
     heatPerCell= heat/numHeatCells
     print "Heat per cell = ", heatPerCell
     self.field[srcl:srcr, srct:srcb, lyr.heat] = heatPerCell
-    self.field[srcl:srcr, srct:srcb, lyr.resis] = matls.copperResistancePerSquare
+    self.field[srcl:srcr, srct:srcb, lyr.resis] = cures
     
     # Boundary conditions
     self.field[0, 0:self.height, lyr.isodeg] = 25.0
     self.field[self.width-1, 0:self.height, lyr.isodeg] = 25.0
     self.field[0:self.width, 0, lyr.isodeg] = 25.0
     self.field[0:self.width, self.height-1, lyr.isodeg] = 25.0
+    
     self.ifield[0, 0:self.height, lyr.isoflag] = 1
     self.ifield[self.width-1, 0:self.height, lyr.isoflag] = 1
     self.ifield[0:self.width, 0, lyr.isoflag] = 1
     self.ifield[0:self.width, self.height-1, lyr.isoflag] = 1
+    
+    self.ifield[0, 0:self.height, lyr.boundCond] = cucond
+    self.ifield[self.width-1, 0:self.height, lyr.boundCond] = cucond
+    self.ifield[0:self.width, 0, lyr.boundCond] = cucond
+    self.ifield[0:self.width, self.height-1, lyr.boundCond] = cucond    
     
     # Thermal conductors
     condwidth= 0.05
@@ -240,8 +268,8 @@ class Mesh:
     cond1r= round(self.width*hsx + self.width*condwidth*0.5)
     cond1t= round(self.height*hsy - self.height*condwidth*0.5)
     cond1b= round(self.height*hsy + self.height*condwidth*0.5)
-    self.field[0:self.width, cond1t:cond1b, lyr.resis] = matls.copperResistancePerSquare
-    self.field[cond1l:cond1r, 0:self.height, lyr.resis] = matls.copperResistancePerSquare
+    self.field[0:self.width, cond1t:cond1b, lyr.resis] = cures
+    self.field[cond1l:cond1r, 0:self.height, lyr.resis] = cures
     
     # Holes
     self.ifield[1, 1, lyr.holeflag]= -1
@@ -282,6 +310,7 @@ class Mesh:
     self.setMeshSize(width, height, lyr)
     self.field[:, :, lyr.isodeg] = 25.0
     self.field[:, :, lyr.resis] = fr4res
+    self.field[:, :, lyr.boundCond] = 0.0
       
     pix = pngproblem.load()
     copperCellCount=0
@@ -305,6 +334,7 @@ class Mesh:
           self.ifield[xn, tyn, lyr.isoflag] = 1
           self.field[xn, tyn, lyr.resis] = cures
           self.field[xn, tyn, lyr.isodeg] = 25.0
+          self.field[xn, tyn, lyr.boundCond] = cucond
           isoCellCount += 1
           copperCellCount += 1
         elif pix[xn,yn][0] == 255 and pix[xn,yn][1] == 255 and pix[xn,yn][2]== 0:
@@ -325,9 +355,10 @@ class Mesh:
     Create a tiny test problem.
     """
     self.setMeshSize(3, 3, lyr)
-    self.field[:, :, lyr.resis] = matls.fr4ResistancePerSquare
+    self.field[:, :, lyr.resis] = 400.0
     
     self.ifield[0:3, 0, lyr.isoflag] = 1
+    self.ifield[0:3, 0, lyr.boundCond] = 400.0
     self.field[1, 1, lyr.heat]    = 2.0
     print "Mesh: " + str(self)
     

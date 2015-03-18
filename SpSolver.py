@@ -6,7 +6,7 @@ class SpSolver:
     self.ascname= self.simbasename + '.asc'
     self.txtname= self.simbasename + '.txt'
     self.sampleTime = 0.1
-    self.debug = False
+    self.debug = True
     self.startSpiceNetlist()
     
   def appendSpiceNetlist(self, str):
