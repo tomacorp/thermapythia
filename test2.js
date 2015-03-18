@@ -1,6 +1,5 @@
 {
 
-
   "showProfile": 1,
   "profileFilename": "profile.txt",
   "webPageFileName": "stackup.html",
@@ -8,8 +7,8 @@
   "layers_config": "layers.js",
   "matls_config": "matls.js",
   "vias_config": "vias.js",
+  "mesh_config": "mesh.js",
 
-  
   "http": {
     "httpPort": 8880,
     "useHttp": 1,
@@ -29,33 +28,6 @@
     { "index": 1, "type":"int",    "name": "isoflag"      },
     { "index": 2, "type":"int",    "name": "spicenodenum" },
     { "index": 3, "type":"int",    "name": "holeflag"     }
-  ],
-  
-  "mesh": [
-    {
-      "title":"Tiny 2D thermal problem",
-      "type":"tiny",
-      "active":0
-    },
-    {
-      "title":"Scalable 2D thermal problem",
-      "type":"scalable",
-      "xsize":5,
-      "ysize":5,
-      "active":0
-    },
-    {
-      "title":"Bitmap 2D thermal problem",
-      "inputFile":"yellow.png",
-      "type":"png",
-      "active":1
-    },
-    {
-      "title":"Bitmap 2D thermal problem",
-      "inputFile":"gimp_test1.png",
-      "type":"png",
-      "active":0
-    }
   ],
   
   "solver": {  

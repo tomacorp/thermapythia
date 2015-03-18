@@ -1,5 +1,5 @@
 {
-"Format": "Thermal analysis stackup file",
+"Format": "Thermal analysis layers file",
 "Author": "Tom Anderson",
 "Creation_Date": "Thu Feb 19 23:46:29 PST 2015",
 "Description": "6 layer board",

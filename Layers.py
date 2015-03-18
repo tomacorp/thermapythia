@@ -32,6 +32,10 @@ class Layers(PCModel):
     self.loadConfig(config)
     
     # The new code
+    
+    self.rowName= "layer"
+    self.colName= "property" 
+    
     self.config_js_fn= fn
     with open (self.config_js_fn, "r") as jsonHandle:
       jsonContents= jsonHandle.read()

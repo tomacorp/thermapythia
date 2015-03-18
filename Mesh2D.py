@@ -1,4 +1,5 @@
 from PIL import Image, ImageDraw
+import yaml
 import numpy as np
 class Mesh:
 
@@ -102,7 +103,15 @@ class Mesh:
   # coupling terms between the pairs.
   #
 
-  def __init__(self, config, lyr, matls):
+  def __init__(self, fn, lyr, matls):
+    
+    self.config_js_fn= fn
+    
+    with open (self.config_js_fn, "r") as jsonHandle:
+      jsonContents= jsonHandle.read()
+      
+    config= yaml.load(jsonContents)
+      
     self.nodeCount = 0
     # Field name dictionary to map self.spicenodenum layer to string values
     # The key is the spicenodename and the value is the spicenodenum.
@@ -119,7 +128,7 @@ class Mesh:
     self.nodeX= []
     self.nodeY= []
     
-    self.defineProblem(config, lyr, matls)
+    self.defineProblem(config['mesh'], lyr, matls)
     self.mapMeshToSolutionMatrix(lyr)
     # TODO: Doesn't make sense that the mesh doesn't have a copy of all of lyr.
     # Refactor it out of other calls.
@@ -208,7 +217,19 @@ class Mesh:
     The conductivities in the problem are based on the material properties
     in the matls object.
     """
+    #
+    # TODO: Physical layers get used properly just below here.
     
+    # For the other uses,
+    # need to split use of lyr into the mesh layers, which are things like lyr.resis,
+    # and these layers should be initialized and managed in the mesh object here,
+    # not in the Layers class, where it is magically created now by messing with
+    # the object hash. Also there is the counting of the layers that happens there.
+    #
+    # The easy way to do this is to move the magic from Layers.py to this class,
+    # and change self.lyr.magic to self.magic, or in the cases where lyr is passed
+    # as a variable, change lyr.magic to self.magic.
+    # 
     fr4cond= matls.getProp('Core', 'conductivityXX')
     fr4thick= lyr.getProp('core1', 'thickness')
     fr4condUnits= matls.getUnits('conductivityXX')

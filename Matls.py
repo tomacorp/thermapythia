@@ -11,7 +11,6 @@ class Matls(PCModel):
     self.colName= "property"   
     self.config_js_fn= fn
     
-    
     with open (self.config_js_fn, "r") as jsonHandle:
       jsonContents= jsonHandle.read()
       

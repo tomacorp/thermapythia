@@ -78,7 +78,7 @@ class SimControl:
     self.createWebPage(self.config['webPageFileName'])
     
     # TODO: Consider refactoring to split mesh into geometry and mesh
-    self.mesh = Mesh2D.Mesh(self.config['mesh'], self.lyr, self.matls)   
+    self.mesh = Mesh2D.Mesh(self.config['mesh_config'], self.lyr, self.matls)   
     return
   
   def createWebPage(self, webPageFileName):
