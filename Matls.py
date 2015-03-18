@@ -109,18 +109,18 @@ class Matls(PCModel):
   # can be replaced with the new loader.
   # There is very similar code in Layers.py.
   
-  #def loadConfig(self, config):
-    #for matl in config:
-      #matlName= matl['name']
-      #matlThickness= Units.Units.convertToMeters(matl['thickness'], matl['thickness_unit'])
-      #if (matl['xcond_unit'] == 'W/mK'):
-        #matlCond= matl['xcond']
-      #else:
-        #print 'Unknown units for material conductivity: ' + str(matl['xcond_unit'])
-        #matlCond= float(NaN)
-      #matlResistanceProp= matlName + 'ResistancePerSquare'
-      #matlCondProp= matlName + 'Cond'
-      #self.__dict__[matlResistanceProp]= 1.0 / (matlCond * matlThickness)
-      #self.__dict__[matlCondProp]= matlCond
-      #print matlResistanceProp + ": " + str(self.__dict__[matlResistanceProp])
-      #print matlCondProp + ": " + str(matlCond)  
+    def loadConfig(self, config):
+      for matl in config:
+        matlName= matl['name']
+        matlThickness= Units.Units.convertToMeters(matl['thickness'], matl['thickness_unit'])
+        if (matl['xcond_unit'] == 'W/mK'):
+          matlCond= matl['xcond']
+        else:
+          print 'Unknown units for material conductivity: ' + str(matl['xcond_unit'])
+          matlCond= float(NaN)
+        matlResistanceProp= matlName + 'ResistancePerSquare'
+        matlCondProp= matlName + 'Cond'
+        self.__dict__[matlResistanceProp]= 1.0 / (matlCond * matlThickness)
+        self.__dict__[matlCondProp]= matlCond
+        print matlResistanceProp + ": " + str(self.__dict__[matlResistanceProp])
+        print matlCondProp + ": " + str(matlCond)  

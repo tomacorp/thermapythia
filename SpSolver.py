@@ -116,7 +116,7 @@ class SpSolver:
           # TODO: Add to mesh layer here for visualization.
           if self.debug == True:
             print str(idx) + ' ' + voltage + ' ' + str(mesh.spiceNodeX[idx]) + ' ' + str(mesh.spiceNodeY[idx])
-          mesh.field[mesh.spiceNodeX[idx], mesh.spiceNodeY[idx], lyr.spicedeg] = voltage
+          mesh.field[mesh.spiceNodeX[idx], mesh.spiceNodeY[idx], mesh._spicedeg] = voltage
           idx += 1
         continue
       if (inTimePoint == True):

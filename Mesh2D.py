@@ -27,7 +27,7 @@ class Mesh:
   Instead have the JSON or other calls inline.
   
   TODO:
-  A nonzero boundary conductivity can be used instead of the flag lyr.isodeg.
+  A nonzero boundary conductivity can be used instead of the flag self._isodeg.
   
   TODO:
   See if the getProp can be factored out of Matls, Layers, and Vias.
@@ -111,6 +111,9 @@ class Mesh:
       jsonContents= jsonHandle.read()
       
     config= yaml.load(jsonContents)
+    self.config= config
+    
+    self.loadConfig(config)
       
     self.nodeCount = 0
     # Field name dictionary to map self.spicenodenum layer to string values
@@ -130,21 +133,22 @@ class Mesh:
     
     self.defineProblem(config['mesh'], lyr, matls)
     self.mapMeshToSolutionMatrix(lyr)
+    
     # TODO: Doesn't make sense that the mesh doesn't have a copy of all of lyr.
     # Refactor it out of other calls.
     self.lyr= lyr
     
-  def setMeshSize(self, w, h, lyr):
+  def setMeshSize(self, w, h):
     """
-    __init__(Mesh self, int w, int h, Layers lyr, Matls matls)
+    __init__(Mesh self, int w, int h, Matls matls)
     Create a square mesh of size w by h.
     The mesh data structure is in self.field, which holds double precision numbers,
     and self.ifield, which holds integers.
     """    
     self.width = w
     self.height = h
-    self.field = np.zeros((self.width, self.height, lyr.numdoublelayers), dtype = 'double')
-    self.ifield = np.zeros((self.width, self.height, lyr.numintlayers), dtype = 'int')
+    self.field = np.zeros((self.width, self.height, self.numdoublelayers), dtype = 'double')
+    self.ifield = np.zeros((self.width, self.height, self.numintlayers), dtype = 'int')
     self.xr, self.yr= np.mgrid[0:self.width+1, 0:self.height+1]
     
   def solveTemperatureNodeCount(self):
@@ -163,9 +167,9 @@ class Mesh:
     """
     if (x < 0 or y < 0 or x >= self.width or y >= self.height):
       return -1
-    if (self.ifield[x, y, self.lyr.holeflag] == 1):
+    if (self.ifield[x, y, self._holeflag] == 1):
       return -1
-    return self.ifield[x, y, self.lyr.holeflag]
+    return self.ifield[x, y, self._holeflag]
 
   def mapMeshToSolutionMatrix(self, lyr):
     """
@@ -183,14 +187,14 @@ class Mesh:
     self.nodeCount= 0;
     for xn in range(0,self.width):
       for yn in range(0, self.height): 
-        if (self.ifield[xn, yn, lyr.holeflag] >= 0):
-          self.ifield[xn, yn, lyr.holeflag]= self.nodeCount
+        if (self.ifield[xn, yn, self._holeflag] >= 0):
+          self.ifield[xn, yn, self._holeflag]= self.nodeCount
           self.nodeCount += 1
     self.nodeXn = np.zeros(self.nodeCount, dtype = 'int')
     self.nodeYn = np.zeros(self.nodeCount, dtype = 'int')
     for xn in range(0,self.width):
       for yn in range(0, self.height):
-        nodeThis= self.ifield[xn, yn, lyr.holeflag]
+        nodeThis= self.ifield[xn, yn, self._holeflag]
         if (nodeThis >= 0):
           self.nodeXn[nodeThis]= xn
           self.nodeYn[nodeThis]= yn   
@@ -205,7 +209,7 @@ class Mesh:
   def getNodeAtXY(self, x, y):
     if x < 0 or x >= self.width or y < 0 or y >= self.height:
       return -1
-    return self.ifield[x, y, self.lyr.holeflag]
+    return self.ifield[x, y, self._holeflag]
     
   # This can scale by using a PNG input instead of code
   def defineScalableProblem(self, lyr, matls, x, y):
@@ -221,7 +225,7 @@ class Mesh:
     # TODO: Physical layers get used properly just below here.
     
     # For the other uses,
-    # need to split use of lyr into the mesh layers, which are things like lyr.resis,
+    # need to split use of lyr into the mesh layers, which are things like self._resis,
     # and these layers should be initialized and managed in the mesh object here,
     # not in the Layers class, where it is magically created now by messing with
     # the object hash. Also there is the counting of the layers that happens there.
@@ -248,8 +252,8 @@ class Mesh:
     cures= 1.0/(cucond * cuthick)
     print "Cu Resistance per square: " + str(cures)      
     
-    self.setMeshSize(x, y, lyr)
-    self.field[:, :, lyr.resis] = fr4res
+    self.setMeshSize(x, y)
+    self.field[:, :, self._resis] = fr4res
     
     # Heat source
     hsx= 0.5
@@ -264,24 +268,24 @@ class Mesh:
     numHeatCells= (srcr - srcl)*(srcb-srct)
     heatPerCell= heat/numHeatCells
     print "Heat per cell = ", heatPerCell
-    self.field[srcl:srcr, srct:srcb, lyr.heat] = heatPerCell
-    self.field[srcl:srcr, srct:srcb, lyr.resis] = cures
+    self.field[srcl:srcr, srct:srcb, self._heat] = heatPerCell
+    self.field[srcl:srcr, srct:srcb, self._resis] = cures
     
     # Boundary conditions
-    self.field[0, 0:self.height, lyr.isodeg] = 25.0
-    self.field[self.width-1, 0:self.height, lyr.isodeg] = 25.0
-    self.field[0:self.width, 0, lyr.isodeg] = 25.0
-    self.field[0:self.width, self.height-1, lyr.isodeg] = 25.0
+    self.field[0, 0:self.height, self._isodeg] = 25.0
+    self.field[self.width-1, 0:self.height, self._isodeg] = 25.0
+    self.field[0:self.width, 0, self._isodeg] = 25.0
+    self.field[0:self.width, self.height-1, self._isodeg] = 25.0
     
-    self.ifield[0, 0:self.height, lyr.isoflag] = 1
-    self.ifield[self.width-1, 0:self.height, lyr.isoflag] = 1
-    self.ifield[0:self.width, 0, lyr.isoflag] = 1
-    self.ifield[0:self.width, self.height-1, lyr.isoflag] = 1
+    self.ifield[0, 0:self.height, self._isoflag] = 1
+    self.ifield[self.width-1, 0:self.height, self._isoflag] = 1
+    self.ifield[0:self.width, 0, self._isoflag] = 1
+    self.ifield[0:self.width, self.height-1, self._isoflag] = 1
     
-    self.ifield[0, 0:self.height, lyr.boundCond] = cucond
-    self.ifield[self.width-1, 0:self.height, lyr.boundCond] = cucond
-    self.ifield[0:self.width, 0, lyr.boundCond] = cucond
-    self.ifield[0:self.width, self.height-1, lyr.boundCond] = cucond    
+    self.field[0, 0:self.height, self._boundCond] = cucond
+    self.field[self.width-1, 0:self.height, self._boundCond] = cucond
+    self.field[0:self.width, 0, self._boundCond] = cucond
+    self.field[0:self.width, self.height-1, self._boundCond] = cucond    
     
     # Thermal conductors
     condwidth= 0.05
@@ -289,13 +293,13 @@ class Mesh:
     cond1r= round(self.width*hsx + self.width*condwidth*0.5)
     cond1t= round(self.height*hsy - self.height*condwidth*0.5)
     cond1b= round(self.height*hsy + self.height*condwidth*0.5)
-    self.field[0:self.width, cond1t:cond1b, lyr.resis] = cures
-    self.field[cond1l:cond1r, 0:self.height, lyr.resis] = cures
+    self.field[0:self.width, cond1t:cond1b, self._resis] = cures
+    self.field[cond1l:cond1r, 0:self.height, self._resis] = cures
     
     # Holes
-    self.ifield[1, 1, lyr.holeflag]= -1
-    self.ifield[1, 1, lyr.isoflag]= 0
-    self.field[1, 1, lyr.heat]= 0.0
+    self.ifield[1, 1, self._holeflag]= -1
+    self.ifield[1, 1, self._isoflag]= 0
+    self.field[1, 1, self._heat]= 0.0
   
   def definePNGProblem(self, fn, lyr, matls):
     """
@@ -328,10 +332,10 @@ class Mesh:
     cures= 1.0/(cucond * cuthick)
     print "Cu Resistance per square: " + str(cures)    
       
-    self.setMeshSize(width, height, lyr)
-    self.field[:, :, lyr.isodeg] = 25.0
-    self.field[:, :, lyr.resis] = fr4res
-    self.field[:, :, lyr.boundCond] = 0.0
+    self.setMeshSize(width, height)
+    self.field[:, :, self._isodeg] = 25.0
+    self.field[:, :, self._resis] = fr4res
+    self.field[:, :, self._boundCond] = 0.0
       
     pix = pngproblem.load()
     copperCellCount=0
@@ -344,25 +348,25 @@ class Mesh:
         # Graphing package has +y up, png has it down
         yn= height - 1 - tyn
         if pix[xn,yn][0] == 255 and pix[xn,yn][1] == 0 and pix[xn,yn][2]== 0: 
-          self.field[xn, tyn, lyr.resis] = cures
-          self.field[xn, tyn, lyr.heat] = heatPerCell
+          self.field[xn, tyn, self._resis] = cures
+          self.field[xn, tyn, self._heat] = heatPerCell
           copperCellCount += 1
           heatCellCount += 1
         elif pix[xn,yn][0] == 0 and pix[xn,yn][1] == 255 and pix[xn,yn][2]== 0:
-          self.field[xn, tyn, lyr.resis] = cures
+          self.field[xn, tyn, self._resis] = cures
           copperCellCount += 1
         elif pix[xn,yn][0] == 0 and pix[xn,yn][1] == 0 and pix[xn,yn][2]== 255:
-          self.ifield[xn, tyn, lyr.isoflag] = 1
-          self.field[xn, tyn, lyr.resis] = cures
-          self.field[xn, tyn, lyr.isodeg] = 25.0
-          self.field[xn, tyn, lyr.boundCond] = cucond
+          self.ifield[xn, tyn, self._isoflag] = 1
+          self.field[xn, tyn, self._resis] = cures
+          self.field[xn, tyn, self._isodeg] = 25.0
+          self.field[xn, tyn, self._boundCond] = cucond
           isoCellCount += 1
           copperCellCount += 1
         elif pix[xn,yn][0] == 255 and pix[xn,yn][1] == 255 and pix[xn,yn][2]== 0:
-          self.field[xn, tyn, lyr.resis] = fr4res
+          self.field[xn, tyn, self._resis] = fr4res
           fr4CellCount += 1
         elif pix[xn,yn][0] == 255 and pix[xn,yn][1] == 255 and pix[xn,yn][2]== 255:
-          self.ifield[xn, tyn, lyr.holeflag] = -1
+          self.ifield[xn, tyn, self._holeflag] = -1
           holeCellCount += 1
         else:
           print 'Unrecognized color: (' + str(pix[xn,yn][0]) + "," + str(pix[xn,yn][1]) + "," + str(pix[xn,yn][2]) + ') at: ' + str(xn) + ", " + str(yn)
@@ -375,12 +379,12 @@ class Mesh:
     defineTinyProblem(Layer lyr, Mesh mesh, Matls matls)
     Create a tiny test problem.
     """
-    self.setMeshSize(3, 3, lyr)
-    self.field[:, :, lyr.resis] = 400.0
+    self.setMeshSize(3, 3)
+    self.field[:, :, self._resis] = 400.0
     
-    self.ifield[0:3, 0, lyr.isoflag] = 1
-    self.ifield[0:3, 0, lyr.boundCond] = 400.0
-    self.field[1, 1, lyr.heat]    = 2.0
+    self.ifield[0:3, 0, self._isoflag] = 1
+    self.field[0:3, 0, self._boundCond] = 400.0
+    self.field[1, 1, self._heat]    = 2.0
     print "Mesh: " + str(self)
     
   def defineProblem(self, config, lyr, matls):
@@ -398,4 +402,16 @@ class Mesh:
           foundProblem= True
     if foundProblem == False:
       print "Problem not specified or not found in configuration"
+      
+  def loadConfig(self, config):
+    self.numdoublelayers= 0
+    self.numintlayers= 0
+    for lyr in config['simulation_layers']:
+      self.__dict__['_' + lyr['name']]= lyr['index']
+      if (lyr['type'] == 'double'):
+        self.numdoublelayers = self.numdoublelayers + 1
+      if (lyr['type'] == 'int'):
+        self.numintlayers = self.numintlayers + 1 
+    print "Number of double layers = " + str(self.numdoublelayers)
+    print "Number of int layers = " + str(self.numintlayers)
           

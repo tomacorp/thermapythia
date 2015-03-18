@@ -29,6 +29,21 @@
       "type":"png",
       "active":0
     }
+  ],
+  
+    "simulation_layers": [
+    { "index": 0, "type":"double", "name": "iso"          },
+    { "index": 1, "type":"double", "name": "heat"         },
+    { "index": 2, "type":"double", "name": "resis"        },
+    { "index": 3, "type":"double", "name": "deg"          },
+    { "index": 4, "type":"double", "name": "isodeg"       },
+    { "index": 5, "type":"double", "name": "spicedeg"     },
+    { "index": 6, "type":"double", "name": "npdeg"        },
+    { "index": 7, "type":"double", "name": "boundCond"    },
+    { "index": 0, "type":"int",    "name": "isonode"      },
+    { "index": 1, "type":"int",    "name": "isoflag"      },
+    { "index": 2, "type":"int",    "name": "spicenodenum" },
+    { "index": 3, "type":"int",    "name": "holeflag"     }
   ]
 
 }

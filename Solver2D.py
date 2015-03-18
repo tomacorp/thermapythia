@@ -175,24 +175,24 @@ class Solver2D:
   def loadBoundaryCondition(self, lyr, mesh, matls):
     for nodeThis in range(0, self.NumGlobalElements):
       x, y= mesh.nodeLocation(nodeThis)
-      if (mesh.ifield[x, y, lyr.isoflag] == 1):
+      if (mesh.ifield[x, y, mesh._isoflag] == 1):
         # The node at x, y gets on-diagonal conductance incremented by the amount of conductance in the boundary.
-        # The Norton equivalent current source I is V*R which is mesh.field[x, y, lyr.isodeg] * matls.boundCond        
-        self.boundaryCondVec[nodeThis] = mesh.field[x, y, lyr.isodeg]
+        # The Norton equivalent current source I is V*R which is mesh.field[x, y, mesh._isodeg] * matls.boundCond        
+        self.boundaryCondVec[nodeThis] = mesh.field[x, y, mesh._isodeg]
         # self.boundaryCondMatl[nodeThis] = matls.boundCond  
-        self.boundaryCondMatl[nodeThis] = mesh.field[x, y, lyr.boundCond]
+        self.boundaryCondMatl[nodeThis] = mesh.field[x, y, mesh._boundCond]
         self.BoundaryNodeCount += 1
       else:
         self.boundaryCondVec[nodeThis] = -512.0
         self.boundaryCondMatl[nodeThis] = 0.0
-      self.totalInjectedCurrent += mesh.field[x, y, lyr.heat]    
+      self.totalInjectedCurrent += mesh.field[x, y, mesh._heat]    
 
   # This is the bottleneck
   # RAM requirement is about 1kb/mesh element for solved Trilinos sparse matrix
   def loadMatrix(self, lyr, mesh, matls, A, b):
     for nodeThis in range(0, mesh.nodeCount):
       x, y= mesh.nodeLocation(nodeThis)
-      nodeResis = mesh.field[x, y, lyr.resis]
+      nodeResis = mesh.field[x, y, mesh._resis]
       GNode= self.GDamping        
 
       nodeRight = mesh.getNodeAtXY(x+1, y)
@@ -201,51 +201,51 @@ class Solver2D:
       nodeDown = mesh.getNodeAtXY(x, y+1)  
 
       if nodeRight >= 0:
-        nodeRightResis= mesh.field[x+1, y, lyr.resis]
+        nodeRightResis= mesh.field[x+1, y, mesh._resis]
         GRight= 2.0/(nodeResis + nodeRightResis)
         GNode += GRight
         A[nodeThis, nodeRight]= -GRight
         A[nodeRight, nodeThis]= -GRight
 
       if nodeUp >= 0:
-        nodeUpResis= mesh.field[x, y-1, lyr.resis]
+        nodeUpResis= mesh.field[x, y-1, mesh._resis]
         GUp= 2.0/(nodeResis + nodeUpResis)
         GNode += GUp
         A[nodeThis, nodeUp]= -GUp
         A[nodeUp, nodeThis]= -GUp
 
       if nodeLeft >= 0:
-        nodeLeftResis=  mesh.field[x-1, y, lyr.resis]
+        nodeLeftResis=  mesh.field[x-1, y, mesh._resis]
         GLeft= 2.0/(nodeResis + nodeLeftResis)
         GNode += GLeft
         A[nodeThis, nodeLeft]= -GLeft
         A[nodeLeft, nodeThis]= -GLeft
 
       if nodeDown >= 0:
-        nodeDownResis=  mesh.field[x, y+1, lyr.resis]        
+        nodeDownResis=  mesh.field[x, y+1, mesh._resis]        
         GDown= 2.0/(nodeResis + nodeDownResis)        
         GNode += GDown
         A[nodeThis, nodeDown]= -GDown
         A[nodeDown, nodeThis]= -GDown
 
-      if (mesh.ifield[x, y, lyr.isoflag] == 1):
+      if (mesh.ifield[x, y, mesh._isoflag] == 1):
         # The node at x, y gets on-diagonal conductance incremented by the amount of conductance in the boundary.
-        # b is the RHS. It gets the current source which is mesh.field[x, y, lyr.isodeg] * matls.boundCond  
-        boundaryCond= mesh.field[x, y, lyr.boundCond]
+        # b is the RHS. It gets the current source which is mesh.field[x, y, mesh._isodeg] * matls.boundCond  
+        boundaryCond= mesh.field[x, y, mesh._boundCond]
         GNode = GNode + boundaryCond
-        # b[nodeThis] = mesh.field[x, y, lyr.isodeg] * matls.boundCond
-        b[nodeThis] = mesh.field[x, y, lyr.isodeg] * boundaryCond
+        # b[nodeThis] = mesh.field[x, y, mesh._isodeg] * matls.boundCond
+        b[nodeThis] = mesh.field[x, y, mesh._isodeg] * boundaryCond
       else:
         b[nodeThis] = 0.0
 
       A[nodeThis, nodeThis]= GNode 
-      b[nodeThis] += mesh.field[x, y, lyr.heat]      
+      b[nodeThis] += mesh.field[x, y, mesh._heat]      
 
   def loadSpiceNetwork(self, lyr, mesh, matls, spice):
 
     for nodeThis in range(0, mesh.nodeCount):
       x, y= mesh.nodeLocation(nodeThis)
-      nodeResis = mesh.field[x, y, lyr.resis]
+      nodeResis = mesh.field[x, y, mesh._resis]
       GNode= self.GDamping        
       
       thisSpiceNode=   "N" + str(x)   + self.s + str(y)
@@ -254,21 +254,21 @@ class Solver2D:
     
       nodeRight = mesh.getNodeAtXY(x+1, y)
       if nodeRight >= 0:
-        nodeRightResis= mesh.field[x+1, y, lyr.resis]
+        nodeRightResis= mesh.field[x+1, y, mesh._resis]
         RRight= (nodeResis + nodeRightResis)/2.0
         spiceNodeRight=  "N" + str(x+1) + self.s + str(y)
-        nodeRightResis= mesh.field[x+1, y,   lyr.resis]
+        nodeRightResis= mesh.field[x+1, y,   mesh._resis]
         spice.appendSpiceNetlist("RFR" + thisSpiceNode + " " + thisSpiceNode + " " + spiceNodeRight + " " + str(RRight) + "\n")
         
       nodeDown = mesh.getNodeAtXY(x, y+1)        
       if nodeDown >= 0:
-        nodeDownResis=  mesh.field[x, y+1, lyr.resis]                  
+        nodeDownResis=  mesh.field[x, y+1, mesh._resis]                  
         RDown=  (nodeResis + nodeDownResis)/2.0
         spiceNodeDown=   "N" + str(x)   + self.s + str(y+1)
-        nodeDownResis=  mesh.field[x,   y+1, lyr.resis]
+        nodeDownResis=  mesh.field[x,   y+1, mesh._resis]
         spice.appendSpiceNetlist("RFD" + thisSpiceNode + " " + thisSpiceNode + " " + spiceNodeDown + " " + str(RDown) + "\n")
         
-      if (mesh.ifield[x, y, lyr.isoflag] == 1):
+      if (mesh.ifield[x, y, mesh._isoflag] == 1):
         thisSpiceNode=   "N" + str(x)   + self.s + str(y)
         # Norton equivalent boundary resistance and current source.
         thisIsoSource=   "I" + thisSpiceNode
@@ -276,10 +276,10 @@ class Solver2D:
         thisBoundaryNode=  "NDIRI" + self.s + str(x) + self.s + str(y)
         thisBoundaryResistor=  "RDIRI" + self.s + str(x) + self.s + str(y)
         # thisBoundaryResistance= 1.0/matls.boundCond
-        thisBoundaryResistance= 1.0/mesh.field[x, y, lyr.boundCond]
+        thisBoundaryResistance= 1.0/mesh.field[x, y, mesh._boundCond]
       
-        thisBoundaryCurrent= mesh.field[x, y, lyr.isodeg] * mesh.field[x, y, lyr.boundCond]
-        # thisBoundaryCurrent= mesh.field[x, y, lyr.isodeg] * matls.boundCond
+        thisBoundaryCurrent= mesh.field[x, y, mesh._isodeg] * mesh.field[x, y, mesh._boundCond]
+        # thisBoundaryCurrent= mesh.field[x, y, mesh._isodeg] * matls.boundCond
         spice.appendSpiceNetlist(thisIsoSource + " 0 " + thisSpiceNode + " DC " + str(thisBoundaryCurrent) + "\n")
         spice.appendSpiceNetlist(thisBoundaryResistor + " " + thisSpiceNode + " 0 " + str(thisBoundaryResistance) + "\n")  
         
@@ -289,10 +289,10 @@ class Solver2D:
     """
     for nodeThis in range(0, mesh.nodeCount):
       x, y= mesh.nodeLocation(nodeThis)
-      if (mesh.field[x, y, lyr.heat] != 0.0):
+      if (mesh.field[x, y, mesh._heat] != 0.0):
         thisSpiceNode=   "N" + str(x) + self.s + str(y)
         thisHeatSource=   "I" + thisSpiceNode
-        thisHeat= -mesh.field[x, y, lyr.heat]
+        thisHeat= -mesh.field[x, y, mesh._heat]
         spice.appendSpiceNetlist(thisHeatSource + " " + thisSpiceNode + " 0 DC " + str(thisHeat) + "\n")    
       
   def checkEnergyBalance(self, mesh, x, b):
@@ -323,22 +323,22 @@ class Solver2D:
 
   def solveAmesos(self, mesh, lyr):
     self.solver.solveMatrixAmesos()
-    self.loadSolutionIntoMesh(lyr.deg, mesh, self.solver.x)
+    self.loadSolutionIntoMesh(mesh._deg, mesh, self.solver.x)
     self.checkEnergyBalance(mesh, self.solver.x, self.solver.b)
 
   def solveAztecOO(self, mesh, lyr):
     self.solver.solveMatrixAztecOO(400000)
-    self.loadSolutionIntoMesh(lyr.deg, mesh, self.solver.x)
+    self.loadSolutionIntoMesh(mesh._deg, mesh, self.solver.x)
     self.checkEnergyBalance(mesh, self.solver.x, self.solver.b)   
 
   def solveSpice(self, mesh, lyr):
     self.spice.solveSpice()
-    self.spice.loadSolutionIntoMesh(lyr.spicedeg, mesh)
+    self.spice.loadSolutionIntoMesh(mesh._spicedeg, mesh)
     # TODO: Need energy balance check here
     
   def solveNumpy(self, mesh, lyr):
     self.xs = np.linalg.solve(self.As, self.bs)
-    self.loadSolutionIntoMesh(lyr.npdeg, mesh, self.xs)
+    self.loadSolutionIntoMesh(mesh._npdeg, mesh, self.xs)
     self.checkEnergyBalance(mesh, self.xs, self.bs)
       
   def loadSolutionIntoMesh(self, lyrIdx, mesh, xs):

@@ -60,7 +60,7 @@ class InteractivePlot:
         
   def plotFields(self):
     layerType= {}
-    for layer in self.config['simulation_layers']:
+    for layer in self.mesh.config['simulation_layers']:
       layerType[layer['name']]= layer['type']    
     for device in self.config['outputs']['mesh']:
       for output in self.config['outputs']['mesh'][device]:

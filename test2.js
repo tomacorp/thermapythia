@@ -57,15 +57,15 @@
       },
       {
         "solverName": "Aztec",
-        "active": 1      
+        "active": 0      
       },
       {
         "solverName": "Amesos",
-        "active": 0      
+        "active": 1      
       },
       {
         "solverName": "Numpy",
-        "active": 0      
+        "active": 0    
       },
     ],
     "solverDebug":
