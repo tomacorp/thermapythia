@@ -65,9 +65,9 @@ class InteractivePlot:
     for device in self.config['outputs']['mesh']:
       for output in self.config['outputs']['mesh'][device]:
         if layerType[output] == 'double':
-          self.plotDoubleLayer(output, self.lyr.__dict__[output], device)
+          self.plotDoubleLayer(output, self.mesh.__dict__['_' + output], device)
         if layerType[output] == 'int':
-          self.plotIntLayer(output, self.lyr.__dict__[output], device)
+          self.plotIntLayer(output, self.mesh.__dict__['_' + output], device)
     
         
   def plotDoubleLayer(self, output, layerIdx, device):

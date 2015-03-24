@@ -100,27 +100,3 @@ class Matls(PCModel):
    The filename of the JSON file is passed into the __init__ and a Matls object is returned.
     
     """
-
-  
-  # TODO:
-  # The old code. This is tricky - by manipulating __dict__, properties are constructed,
-  # and are therefore difficult to trace throughout the code base using the IDE.
-  # Need a set of material properties to match the existing 2D code so that all this
-  # can be replaced with the new loader.
-  # There is very similar code in Layers.py.
-  
-    def loadConfig(self, config):
-      for matl in config:
-        matlName= matl['name']
-        matlThickness= Units.Units.convertToMeters(matl['thickness'], matl['thickness_unit'])
-        if (matl['xcond_unit'] == 'W/mK'):
-          matlCond= matl['xcond']
-        else:
-          print 'Unknown units for material conductivity: ' + str(matl['xcond_unit'])
-          matlCond= float(NaN)
-        matlResistanceProp= matlName + 'ResistancePerSquare'
-        matlCondProp= matlName + 'Cond'
-        self.__dict__[matlResistanceProp]= 1.0 / (matlCond * matlThickness)
-        self.__dict__[matlCondProp]= matlCond
-        print matlResistanceProp + ": " + str(self.__dict__[matlResistanceProp])
-        print matlCondProp + ": " + str(matlCond)  

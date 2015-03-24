@@ -1,34 +1,24 @@
 {
 
   "showProfile": 1,
-  "profileFilename": "profile.txt",
-  "webPageFileName": "stackup.html",
   "debug": 1,
   "layers_config": "layers.js",
   "matls_config": "matls.js",
   "vias_config": "vias.js",
   "mesh_config": "mesh.js",
+  
+  
 
+  "profileFilename": "profile.txt",
+  "webPageFileName": "stackup.html",
   "http": {
     "httpPort": 8880,
     "useHttp": 1,
     "popBrowser": 1
   },
-
-  "simulation_layers": [
-    { "index": 0, "type":"double", "name": "iso"          },
-    { "index": 1, "type":"double", "name": "heat"         },
-    { "index": 2, "type":"double", "name": "resis"        },
-    { "index": 3, "type":"double", "name": "deg"          },
-    { "index": 4, "type":"double", "name": "isodeg"       },
-    { "index": 5, "type":"double", "name": "spicedeg"     },
-    { "index": 6, "type":"double", "name": "npdeg"        },
-    { "index": 7, "type":"double", "name": "boundCond"    },
-    { "index": 0, "type":"int",    "name": "isonode"      },
-    { "index": 1, "type":"int",    "name": "isoflag"      },
-    { "index": 2, "type":"int",    "name": "spicenodenum" },
-    { "index": 3, "type":"int",    "name": "holeflag"     }
-  ],
+  
+  
+  
   
   "solver": {  
     "solverFlags": [
@@ -75,11 +65,14 @@
     }
   },
 
+
+
+
   "outputs": {
     "active": 1,
     "mesh": { 
        "png": ["deg", "holeflag","heat","resis","isodeg","isoflag","spicenodenum"],
-       "interactive": []
+       "interactive": ["deg"]
     },
     "deltamesh": {
        "interactive": [], 
@@ -92,5 +85,7 @@
     "outputDirectory": "thermpypng",
     'maskLayer': 'holeflag'
   }
+
+
 
 }

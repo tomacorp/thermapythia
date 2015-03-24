@@ -73,7 +73,7 @@ class SimControl:
     # CAD Layers: Data from CAD source, could also include drills, for example.
     # Physical Layers: PhyLayers: 2D multilayer bitmap representation of the design. This is a solid model.
     # Thermal Simulation Layers: Thermapythia layers: Values used to load the matrix, flags, etc.
-    self.lyr = Layers.Layers(self.config['simulation_layers'], self.config['layers_config'])
+    self.lyr = Layers.Layers(self.config['layers_config'])
     self.via = Vias.Vias(self.config['vias_config'])
     self.createWebPage(self.config['webPageFileName'])
     

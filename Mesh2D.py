@@ -30,7 +30,8 @@ class Mesh:
   A nonzero boundary conductivity can be used instead of the flag self._isodeg.
   
   TODO:
-  See if the getProp can be factored out of Matls, Layers, and Vias.
+  It seems like a good idea to to specify a layer as having a % copper instead of detailed traces,
+  and except for holes. Then there is the problem of thermal relief, unattached via relief, etc.
   
   TODO: Stackup editor for web.
   Styles:
@@ -111,6 +112,8 @@ class Mesh:
       jsonContents= jsonHandle.read()
       
     config= yaml.load(jsonContents)
+    
+    # TODO: This shouldn't be needed but the plot routine uses mesh.config
     self.config= config
     
     self.loadConfig(config)

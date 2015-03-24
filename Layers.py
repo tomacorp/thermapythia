@@ -27,9 +27,9 @@ import yaml
 # In this case the layer thickness would vary with different part sizes.
 
 class Layers(PCModel):
-  def __init__(self, config, fn):
+  def __init__(self, fn):
     # The old code
-    self.loadConfig(config)
+    # self.loadConfig(config)
     
     # The new code
     
@@ -174,15 +174,15 @@ class Layers(PCModel):
   # These are actually the simulation layers, and should be a different object from the
   # PC board physical stackup.
   
-  def loadConfig(self, config):
-    self.numdoublelayers= 0
-    self.numintlayers= 0
-    for lyr in config:
-      self.__dict__[lyr['name']]= lyr['index']
-      if (lyr['type'] == 'double'):
-        self.numdoublelayers = self.numdoublelayers + 1
-      if (lyr['type'] == 'int'):
-        self.numintlayers = self.numintlayers + 1
+  #def loadConfig(self, config):
+    #self.numdoublelayers= 0
+    #self.numintlayers= 0
+    #for lyr in config:
+      #self.__dict__[lyr['name']]= lyr['index']
+      #if (lyr['type'] == 'double'):
+        #self.numdoublelayers = self.numdoublelayers + 1
+      #if (lyr['type'] == 'int'):
+        #self.numintlayers = self.numintlayers + 1
         
   def helpString(self):        
     return """ 
