@@ -31,8 +31,13 @@ class Matls(PCModel):
   
   def setMatlTableCols(self):
     self.tableCols= ['name', 'type', 'density', 'color', 'specific_heat', 'conductivity', 
-                         'conductivityXX', 'conductivityYY', 'conductivityZZ', 'reflection_coeff', 
-                         'emissivity', 'max_height', 'thickness']    
+                'conductivityXX', 'conductivityYY', 'conductivityZZ', 'reflection_coeff', 
+                'emissivity', 'max_height', 'thickness']    
+    self.tableColSQLTypes= {'name':'TEXT', 'type':'TEXT',
+                'density':'real','color':'TEXT','specific_heat':'real',
+                'conductivity':'real','conductivityXX':'real',
+                'conductivityYY':'real','conductivityZZ':'real','reflection_coeff':'real',
+                'emissivity':'real','max_height':'real','thickness':'real'} 
 
   def setMatlTableUnits(self):
     self.tableUnits= {'name':'', 'type':'', 'density':'gm/cc', 'color':'', 'specific_heat':'J/gm-K', 'conductivity':'W/m-K', 

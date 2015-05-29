@@ -65,16 +65,16 @@ class SimControl:
     args = parser.parse_args()
     print "Config file is: " + str(args.cfg)   
     self.configJSON= args.cfg.read()
-    self.config= yaml.load(self.configJSON)
-    
+    self.config= yaml.load(self.configJSON)  
+  
   def loadModel(self):
-    self.matls = Matls.Matls(self.config['matls_config'])
+    self.matls = Matls.Matls(self.config['matl_config'])
     # BOM Layers: Manufacturer's BOM, for example with three layers that stack to make a single core.
     # CAD Layers: Data from CAD source, could also include drills, for example.
     # Physical Layers: PhyLayers: 2D multilayer bitmap representation of the design. This is a solid model.
     # Thermal Simulation Layers: Thermapythia layers: Values used to load the matrix, flags, etc.
-    self.lyr = Layers.Layers(self.config['layers_config'])
-    self.via = Vias.Vias(self.config['vias_config'])
+    self.lyr = Layers.Layers(self.config['layer_config'])
+    self.via = Vias.Vias(self.config['via_config'])
     self.createWebPage(self.config['webPageFileName'])
     
     # TODO: Consider refactoring to split mesh into geometry and mesh

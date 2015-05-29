@@ -36,6 +36,7 @@
 
 import subprocess, os
 import pstats
+
 import StringIO
 import cProfile
 import SimControl

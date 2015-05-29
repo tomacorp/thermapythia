@@ -58,6 +58,9 @@ class Layers(PCModel):
   def setLayerTableCols(self):
     self.tableCols= ['name', 'matl', 'type', 'thickness', 'displaces', 'coverage',
                           'z_bottom', 'z_top', 'adheres_to']
+    self.tableColSQLTypes= {'name':'TEXT', 'matl':'TEXT', 'type':'TEXT', 'thickness':'real',
+                            'displaces':'TEXT', 'coverage':'real', 'z_bottom':'real', 'z_top':'real',
+                            'adheres_to':'TEXT'}
     
   def setLayerTableUnits(self):
     self.tableUnits= {'name':'', 'matl':'', 'type':'', 'thickness':'m', 'displaces':'', 'coverage':'',
@@ -108,6 +111,7 @@ class Layers(PCModel):
       # print "  Fill from below: " + str(fillFromBelow[fillIdx])
       # print "  Laminated thickness: " + str(laminatedThickness) + "\n"
       layer['thickness']= laminatedThickness
+      self.propDict[layer['name']]['thickness']= laminatedThickness
       fillIdx = fillIdx + 1
       
     # Board thickness with embedding
@@ -121,8 +125,12 @@ class Layers(PCModel):
     height= self.boardThickness
     for layer in self.layers:
       layer['z_top']= height
+      self.propDict[layer['name']]['z_top']= height;
+      
       height= height - layer['thickness']  
+      
       layer['z_bottom']= height
+      self.propDict[layer['name']]['z_bottom']= height;
     return
 
   # HTML Generation

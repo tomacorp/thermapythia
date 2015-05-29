@@ -19,15 +19,16 @@ class Vias(PCModel):
     self.vias= self.viaConfig['Vias']
 
     self.setViaTableCols()
-    self.checkProperties(self.vias, self.viaTableCols)
+    self.checkProperties(self.vias, self.tableCols)
     self.setViaTableUnits()
-    self.convertUnits(self.vias, self.viaTableCols, self.viaTableUnits)
-    self.viaDict= self.createTableDictionary(self.vias, self.viaTableCols)
+    self.convertUnits(self.vias, self.tableCols, self.viaTableUnits)
+    self.propDict= self.createTableDictionary(self.vias, self.tableCols)
 
 # Vias
 
   def setViaTableCols(self):
-    self.viaTableCols= ['name', 'matl', 'to', 'from']
+    self.tableCols= ['name', 'matl', 'to', 'from']
+    self.tableColSQLTypes= {'name':'TEXT', 'matl':'TEXT', 'to':'TEXT', 'from':'TEXT' }
     return
 
   def setViaTableUnits(self):
@@ -40,12 +41,12 @@ class Vias(PCModel):
     viaHtml= ''
 
     row= ''
-    for prop in self.viaTableCols:
+    for prop in self.tableCols:
       row += h.tdh(prop)
     viaHtml += h.tr(row)
 
     row= ''
-    for prop in self.viaTableCols:
+    for prop in self.tableCols:
       val= self.viaTableUnits[prop]
       if val == '':
         val= '&nbsp;'
@@ -55,7 +56,7 @@ class Vias(PCModel):
     for via in self.vias:
       row= ''
       vianame= ''
-      for prop in self.viaTableCols:
+      for prop in self.tableCols:
         if prop in via:
           if prop == 'name':
             vianame= via[prop]

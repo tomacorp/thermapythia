@@ -2,9 +2,9 @@
 
   "showProfile": 1,
   "debug": 1,
-  "layers_config": "layers.js",
-  "matls_config": "matls.js",
-  "vias_config": "vias.js",
+  "layer_config": "layers.js",
+  "matl_config": "matls.js",
+  "via_config": "vias.js",
   "mesh_config": "mesh.js",
   
   
@@ -24,7 +24,7 @@
     "solverFlags": [
       {
         "flag": "debug",
-        "setting": 0
+        "setting": 1
       },
       {
         "flag": "webPage",
@@ -32,7 +32,7 @@
       },
       {
         "flag": "matrixMarket",
-        "setting": 0
+        "setting": 1
       },
     ],
     "solvers": [
@@ -64,8 +64,6 @@
       "mmPrefix": "diri_"
     }
   },
-
-
 
 
   "outputs": {

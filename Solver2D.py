@@ -165,11 +165,15 @@ class Solver2D:
       self.loadMatrix(lyr, mesh, matls, self.As, self.bs)
       self.solveNumpy(mesh, lyr)
       
-    if (self.debug == True):
-      self.printNumpy()
+    if (self.matrixMarket == True):
+      self.solver.saveMatrix()
+    # if (self.debug == True):
+      # self.printNumpy()
       
     if (self.webPage == True):
       self.createWebPage(lyr, mesh)
+      
+    
       
   # Boundary conditions are stored in Numpy arrays
   def loadBoundaryCondition(self, lyr, mesh, matls):
@@ -400,3 +404,5 @@ class Solver2D:
     MMReaderMMA= mm.MatrixMarket()     
     MMA= MMReaderMMA.read(self.solver.probFilename)
     MMHtmlWriter.writeHtml([MMA, MMX, MMRHS], htmlFilename)  
+    
+
