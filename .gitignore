@@ -16,7 +16,6 @@
 *.mtx
 *.sublime-project
 *.sublime-workspace
-*.txt
 *.asc
 *.cki
 *.xcf
